@@ -95,8 +95,6 @@ class cloud {
                 assert(grid[k] > 1);
 #endif
 
-            assert(coo.size() == val.size());
-
             psi.reset( new clattice(cmin, cmax, grid, coo, val) );
             double res = psi->update_data(coo, val);
 #ifdef MBA_VERBOSE
