@@ -32,6 +32,7 @@ int main() {
 
     // Get interpolated value at arbitrary location.
     double w = c(0.3, 0.7);
+}
 ~~~
 
 ### References
