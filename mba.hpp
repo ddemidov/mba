@@ -383,6 +383,8 @@ class cloud {
                             return (t * (t * (-3 * t + 3) + 3) + 1) / 6;
                         case 3:
                             return t * t * t / 6;
+                        default:
+                            return 0;
                     }
                 }
 
