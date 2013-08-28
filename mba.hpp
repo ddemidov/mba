@@ -33,11 +33,9 @@ THE SOFTWARE.
 
 #include <vector>
 #include <array>
-#include <list>
 #include <memory>
 #include <algorithm>
 #include <numeric>
-#include <exception>
 #include <type_traits>
 #include <cassert>
 
