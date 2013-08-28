@@ -10,12 +10,12 @@ Example of 2D interpolation:
 int main() {
     // Coordinates of data points.
     std::vector< std::array<double,2> > p = {
-        mba::make_array<double>(0.0, 0.0),
-        mba::make_array<double>(0.0, 1.0),
-        mba::make_array<double>(1.0, 0.0),
-        mba::make_array<double>(1.0, 1.0),
-        mba::make_array<double>(0.4, 0.4),
-        mba::make_array<double>(0.6, 0.6)
+        {0.0, 0.0},
+        {0.0, 1.0},
+        {1.0, 0.0},
+        {1.0, 1.0},
+        {0.4, 0.4},
+        {0.6, 0.6}
     };
 
     // Data values.
