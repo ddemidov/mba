@@ -53,6 +53,30 @@ inline std::array<T, sizeof...(X)> make_array(X... x) {
     return p;
 }
 
+/// Default initial grid size.
+template <size_t N>
+inline std::array<size_t, N> default_grid(
+        const std::array<double, N> &xmin,
+        const std::array<double, N> &xmax
+        )
+{
+    size_t imin = 0;
+    std::array<double, N> delta = {xmax[0] - xmin[0]};
+
+    for(size_t k = 1; k < N; ++k) {
+        delta[k] = xmax[k] - xmin[k];
+        if (delta[k] < delta[imin])
+            imin = k;
+    }
+
+    std::array<size_t, N> grid;
+
+    for(size_t k = 0; k < N; ++k)
+        grid[k] = static_cast<size_t>(2 * delta[k] / delta[imin] + 0.5);
+
+    return grid;
+}
+
 /// Scattered data interpolation with multilevel B-Splines.
 /**
  * This is an implementation of the MBA algorithm from [1]. This is a fast

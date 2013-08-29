@@ -17,10 +17,11 @@ int main() {
         0.2, 0.0, 0.0, -0.2, -1.0, 1.0
     };
 
+    std::array<double, 2> xmin = {-0.01, -0.01};
+    std::array<double, 2> xmax = { 1.01,  1.01};
+
     mba::cloud<2> c(
-            mba::make_array<double>(-0.01, -0.01),
-            mba::make_array<double>( 1.01,  1.01),
-            p, v, mba::make_array<size_t>(5, 5)
+            xmin, xmax, p, v, mba::default_grid(xmin, xmax)
             );
 
     std::ofstream dat("c.dat");
