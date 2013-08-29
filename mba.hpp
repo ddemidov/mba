@@ -131,7 +131,7 @@ class cloud {
             for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
                 for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
 
-                clattice *f = new clattice(cmin, cmax, grid, coo, val);
+                std::unique_ptr<clattice> f( new clattice(cmin, cmax, grid, coo, val) );
                 res = f->update_data(coo, val);
 
 #ifdef MBA_VERBOSE
@@ -139,7 +139,7 @@ class cloud {
 #endif
 
                 f->append_refined(*psi);
-                psi.reset(f);
+                psi = std::move(f);
             }
 
         }
