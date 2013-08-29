@@ -119,13 +119,16 @@ class cloud {
                 assert(grid[k] > 1);
 #endif
 
+            double res0 = std::accumulate(val.begin(), val.end(), 0.0,
+                    [](double sum, double v) { return sum + v * v; });
+
             psi.reset( new clattice(cmin, cmax, grid, coo, val) );
             double res = psi->update_data(coo, val);
 #ifdef MBA_VERBOSE
             std::cout << "level  0: res = " << std::scientific << res << std::endl;
 #endif
 
-            for (size_t k = 1; (res > tol) && (k < levels); ++k) {
+            for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
                 for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
 
                 clattice *f = new clattice(cmin, cmax, grid, coo, val);
