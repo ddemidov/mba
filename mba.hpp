@@ -177,7 +177,7 @@ class cloud {
                 res = f->update_data(coo, val);
 
 #ifdef MBA_VERBOSE
-                std::cout << "level " << std::setw(2) << k << std::scientific << ": res = " << res << std::endl;
+                std::cout << "level " << std::setw(2) << k << std::scientific << ": res = " << res / res0 << std::endl;
 #endif
 
                 f->append_refined(*psi);
