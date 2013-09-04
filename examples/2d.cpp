@@ -53,16 +53,18 @@ int main(int argc, char *argv[]) {
             double y = c[1] - 0.5;
             return x * x + y * y;
             });
-
-    std::vector<std::array<double,2>> lp(p.begin() + chunk.begin(), p.begin() + chunk.end());
-    std::vector<double>               lv(v.begin() + chunk.begin(), v.begin() + chunk.end());
     prof.toc("generate data");
 
     std::array<double, 2> xmin = {-0.01, -0.01};
     std::array<double, 2> xmax = { 1.01,  1.01};
 
     prof.tic("create cloud");
-    mba::cloud<2> c(MPI_COMM_WORLD, xmin, xmax, lp, lv, mba::default_grid(xmin, xmax));
+    mba::cloud<2> c(
+            MPI_COMM_WORLD, xmin, xmax,
+            p.begin() + chunk.begin(), p.begin() + chunk.end(),
+            v.begin() + chunk.begin(),
+            mba::default_grid(xmin, xmax)
+            );
     prof.toc("create cloud");
 
     if (rank == 0) {

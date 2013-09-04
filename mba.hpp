@@ -150,31 +150,30 @@ class cloud {
          * \param levels number of levels in hierarchy.
          * \param tol    stop if residual is less than this.
          */
+        template <class CooIterator, class ValIterator>
         cloud(
                 MPI_Comm comm,
                 const point &cmin, const point &cmax,
-                const std::vector<point> &coo, std::vector<double> val,
+                CooIterator coo_begin, CooIterator coo_end, ValIterator val_begin,
                 std::array<size_t, NDIM> grid, size_t levels = 8, double tol = 1e-8
              )
         {
 #ifndef NDEBUG
-            assert(coo.size() == val.size());
-
-            for(size_t k = 0; k < NDIM; ++k)
-                assert(grid[k] > 1);
+            for(size_t k = 0; k < NDIM; ++k) assert(grid[k] > 1);
 #endif
 
             int rank;
             MPI_Comm_rank(comm, &rank);
 
-            double res0 = std::accumulate(val.begin(), val.end(), 0.0,
+            double res0 = std::accumulate(val_begin, val_begin + (coo_end - coo_begin), 0.0,
                     [](double sum, double v) { return sum + v * v; });
 
             MPI_Allreduce(MPI_IN_PLACE, &res0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-            psi.reset( new clattice(comm, cmin, cmax, grid, coo, val) );
-            double res = psi->update_data(coo, val);
+            psi.reset( new clattice(comm, cmin, cmax, grid, coo_begin, coo_end, val_begin) );
+            double res = psi->update_data(coo_begin, coo_end, val_begin);
             MPI_Allreduce(MPI_IN_PLACE, &res, 1, MPI_DOUBLE, MPI_SUM, comm);
+
 #ifdef MBA_VERBOSE
             if (rank == 0)
                 std::cout << "level  0: res = " << std::scientific << res / res0 << std::endl;
@@ -183,8 +182,8 @@ class cloud {
             for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
                 for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
 
-                std::unique_ptr<clattice> f( new clattice(comm, cmin, cmax, grid, coo, val) );
-                res = f->update_data(coo, val);
+                std::unique_ptr<clattice> f( new clattice(comm, cmin, cmax, grid, coo_begin, coo_end, val_begin) );
+                res = f->update_data(coo_begin, coo_end, val_begin);
                 MPI_Allreduce(MPI_IN_PLACE, &res, 1, MPI_DOUBLE, MPI_SUM, comm);
 
 #ifdef MBA_VERBOSE
@@ -235,10 +234,11 @@ class cloud {
 #endif
             public:
                 // Control lattice initialization.
+                template <class CooIterator, class ValIterator>
                 clattice(
                         MPI_Comm comm,
                         const point &c0, const point &cmax, std::array<size_t, NDIM> grid,
-                        const std::vector<point> &coo, const std::vector<double> &val
+                        CooIterator p, CooIterator coo_end, ValIterator v
                         ) : comm(comm), cmin(c0), n(grid)
                 {
                     for(size_t d = 0; d < NDIM; ++d) {
@@ -254,9 +254,7 @@ class cloud {
                     std::vector<double> delta(n[0] * stride[0], 0.0);
                     std::vector<double> omega(n[0] * stride[0], 0.0);
 
-                    auto p = coo.begin();
-                    auto v = val.begin();
-                    for(; p != coo.end(); ++p, ++v) {
+                    for(; p != coo_end; ++p, ++v) {
                         if (!contained(c0, cmax, *p)) continue;
 
                         index i;
@@ -343,14 +341,15 @@ class cloud {
                 }
 
                 // Subtract interpolated values from data points.
-                double update_data(const std::vector<point> &coo, std::vector<double> &val) const {
-                    auto c = coo.begin();
-                    auto v = val.begin();
-
+                template <class CooIterator, class ValIterator>
+                double update_data(
+                        CooIterator p, CooIterator coo_end, ValIterator v
+                        ) const
+                {
                     double res = 0;
 
-                    for(; c != coo.end(); ++c, ++v) {
-                        *v -= (*this)(*c);
+                    for(; p != coo_end; ++p, ++v) {
+                        *v -= (*this)(*p);
 
                         res += (*v) * (*v);
                     }
