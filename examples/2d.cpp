@@ -1,28 +1,30 @@
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <random>
 
 #include <mba.hpp>
 
-int main() {
-    std::vector< std::array<double,2> > p = {
-        mba::make_array<double>(0.0, 0.0),
-        mba::make_array<double>(0.0, 1.0),
-        mba::make_array<double>(1.0, 0.0),
-        mba::make_array<double>(1.0, 1.0),
-        mba::make_array<double>(0.4, 0.4),
-        mba::make_array<double>(0.6, 0.6)
-    };
+int main(int argc, char *argv[]) {
+    const size_t n = argc < 2 ? 1024 * 1024 : std::stoi(argv[1]);
 
-    std::vector<double> v = {
-        0.2, 0.0, 0.0, -0.2, -1.0, 1.0
-    };
+    std::default_random_engine rng(0);
+    std::uniform_real_distribution<double> rnd(0.0, 1.0);
+
+    std::vector< std::array<double,2> > p(n);
+    std::generate(p.begin(), p.end(), [&]() { return mba::make_array<double>(rnd(rng), rnd(rng)); });
+
+    std::vector<double> v(n);
+    std::transform(p.begin(), p.end(), v.begin(), [](const std::array<double,2> &c) {
+            double x = c[0] - 0.5;
+            double y = c[1] - 0.5;
+            return x * x + y * y;
+            });
 
     std::array<double, 2> xmin = {-0.01, -0.01};
     std::array<double, 2> xmax = { 1.01,  1.01};
 
-    mba::cloud<2> c(
-            xmin, xmax, p, v, mba::default_grid(xmin, xmax)
-            );
+    mba::cloud<2> c(xmin, xmax, p, v, mba::default_grid(xmin, xmax));
 
     std::ofstream dat("c.dat");
     dat << std::scientific;
