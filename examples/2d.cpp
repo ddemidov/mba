@@ -32,11 +32,13 @@ int main(int argc, char *argv[]) {
 
     profiler<> prof;
 
+    prof.tic("Init MPI");
     MPI_Init(&argc, &argv);
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+    prof.toc("Init MPI");
 
     chunk chunk(size, rank, n);
 
