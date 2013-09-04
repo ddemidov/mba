@@ -39,6 +39,8 @@ THE SOFTWARE.
 #include <type_traits>
 #include <cassert>
 
+#include <mpi.h>
+
 #ifdef MBA_VERBOSE
 #  include <iostream>
 #  include <iomanip>
@@ -149,6 +151,7 @@ class cloud {
          * \param tol    stop if residual is less than this.
          */
         cloud(
+                MPI_Comm comm,
                 const point &cmin, const point &cmax,
                 const std::vector<point> &coo, std::vector<double> val,
                 std::array<size_t, NDIM> grid, size_t levels = 8, double tol = 1e-8
@@ -161,23 +164,32 @@ class cloud {
                 assert(grid[k] > 1);
 #endif
 
+            int rank;
+            MPI_Comm_rank(comm, &rank);
+
             double res0 = std::accumulate(val.begin(), val.end(), 0.0,
                     [](double sum, double v) { return sum + v * v; });
 
-            psi.reset( new clattice(cmin, cmax, grid, coo, val) );
+            MPI_Allreduce(MPI_IN_PLACE, &res0, 1, MPI_DOUBLE, MPI_SUM, comm);
+
+            psi.reset( new clattice(comm, cmin, cmax, grid, coo, val) );
             double res = psi->update_data(coo, val);
+            MPI_Allreduce(MPI_IN_PLACE, &res, 1, MPI_DOUBLE, MPI_SUM, comm);
 #ifdef MBA_VERBOSE
-            std::cout << "level  0: res = " << std::scientific << res << std::endl;
+            if (rank == 0)
+                std::cout << "level  0: res = " << std::scientific << res / res0 << std::endl;
 #endif
 
             for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
                 for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
 
-                std::unique_ptr<clattice> f( new clattice(cmin, cmax, grid, coo, val) );
+                std::unique_ptr<clattice> f( new clattice(comm, cmin, cmax, grid, coo, val) );
                 res = f->update_data(coo, val);
+                MPI_Allreduce(MPI_IN_PLACE, &res, 1, MPI_DOUBLE, MPI_SUM, comm);
 
 #ifdef MBA_VERBOSE
-                std::cout << "level " << std::setw(2) << k << std::scientific << ": res = " << res / res0 << std::endl;
+                if (rank == 0)
+                    std::cout << "level " << std::setw(2) << k << std::scientific << ": res = " << res / res0 << std::endl;
 #endif
 
                 f->append_refined(*psi);
@@ -201,6 +213,7 @@ class cloud {
         /// Control lattice
         class clattice {
             private:
+                MPI_Comm comm;
                 point cmin, hinv;
                 index n, stride;
                 std::vector<double> phi;
@@ -223,9 +236,10 @@ class cloud {
             public:
                 // Control lattice initialization.
                 clattice(
+                        MPI_Comm comm,
                         const point &c0, const point &cmax, std::array<size_t, NDIM> grid,
                         const std::vector<point> &coo, const std::vector<double> &val
-                        ) : cmin(c0), n(grid)
+                        ) : comm(comm), cmin(c0), n(grid)
                 {
                     for(size_t d = 0; d < NDIM; ++d) {
                         hinv[d] = (grid[d] - 1) / (cmax[d] - cmin[d]);
@@ -287,6 +301,9 @@ class cloud {
                         }
                     }
 
+                    MPI_Allreduce(MPI_IN_PLACE, delta.data(), delta.size(), MPI_DOUBLE, MPI_SUM, comm);
+                    MPI_Allreduce(MPI_IN_PLACE, omega.data(), omega.size(), MPI_DOUBLE, MPI_SUM, comm);
+
                     phi.resize(omega.size());
 
                     for(auto w = omega.begin(), d = delta.begin(), f = phi.begin();
@@ -337,6 +354,8 @@ class cloud {
 
                         res += (*v) * (*v);
                     }
+
+                    MPI_Allreduce(MPI_IN_PLACE, &res, 1, MPI_DOUBLE, MPI_SUM, comm);
 
                     return res;
                 }
