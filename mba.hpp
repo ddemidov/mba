@@ -248,8 +248,6 @@ class cloud {
                         index i;
                         point s;
 
-                        bool valid = true;
-
                         for(size_t d = 0; d < NDIM; ++d) {
                             double u = ((*p)[d] - cmin[d]) * hinv[d];
                             i[d] = floor(u) - 1;
@@ -417,9 +415,10 @@ class cloud {
                 class dcounter {
                     public:
                         dcounter(const std::array<size_t, M> &N)
-                            : idx(0), N(N),
+                            : idx(0),
                               size(std::accumulate(N.begin(), N.end(),
-                                        static_cast<size_t>(1), std::multiplies<size_t>()))
+                                        static_cast<size_t>(1), std::multiplies<size_t>())),
+                              N(N)
                         {
                             std::fill(i.begin(), i.end(), static_cast<size_t>(0));
                         }
