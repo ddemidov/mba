@@ -44,25 +44,6 @@ THE SOFTWARE.
 #  include <iomanip>
 #endif
 
-#ifdef MBA_SERIALIZATION
-#  include <boost/serialization/access.hpp>
-#  include <boost/serialization/split_member.hpp>
-#  include <boost/serialization/vector.hpp>
-#  include <boost/serialization/nvp.hpp>
-
-namespace boost {
-namespace serialization {
-
-template <class Archive, class T, size_t N>
-void serialize(Archive & ar, std::array<T, N> &v, const unsigned version) {
-    for(size_t i = 0; i < N; ++i) ar & v[i];
-}
-
-} // namespace serialization
-} // namespace boost
-
-#endif
-
 namespace mba {
 
 /// Helper function for std::array creation.
@@ -115,30 +96,22 @@ class cloud {
         class clattice;
         std::unique_ptr<clattice> psi;  // Control lattice.
 
-#ifdef MBA_SERIALIZATION
-        friend class boost::serialization::access;
-
-        template <class Archive>
-        void save(Archive & ar, const unsigned version) const {
-            clattice *ptr = psi.get();
-            ar & boost::serialization::make_nvp("clattice", ptr);
+        void load(std::ifstream &f) {
+            psi.reset( new clattice(f) );
         }
 
-        template <class Archive>
-        void load(Archive & ar, const unsigned version) {
-            clattice *ptr;
-            ar & boost::serialization::make_nvp("clattice", ptr);
-            psi.reset(ptr);
-        }
-
-        BOOST_SERIALIZATION_SPLIT_MEMBER()
     public:
-        template <class Archive>
-        cloud(Archive & ar) {
-            ar & *this;
+        /// Saves data to a binary file.
+        void save(std::ofstream &f) const {
+            psi->save(f);
         }
-#endif
-    public:
+
+        /// Constructor.
+        /** Loads saved data from a binary file. */
+        cloud(std::ifstream &f) {
+            load(f);
+        }
+
         /// Constructor.
         /**
          * \param cmin   corner of bounding box with smallest coordinates.
@@ -237,22 +210,32 @@ class cloud {
                 index n, stride;
                 std::vector<double> phi;
 
-#ifdef MBA_SERIALIZATION
-                friend class boost::serialization::access;
-
-                template <class Archive>
-                void serialize(Archive & ar, unsigned version) {
-                    ar & cmin;
-                    ar & hinv;
-                    ar & n;
-                    ar & stride;
-                    ar & phi;
+                void load(std::ifstream &f) {
+                    f.read((char*)cmin.data(), cmin.size() * sizeof(cmin[0]));
+                    f.read((char*)hinv.data(), hinv.size() * sizeof(hinv[0]));
+                    f.read((char*)n.data(), n.size() * sizeof(n[0]));
+                    f.read((char*)stride.data(), stride.size() * sizeof(stride[0]));
+                    size_t n;
+                    f.read((char*)&n, sizeof(n));
+                    phi.resize(n);
+                    f.read((char*)phi.data(), phi.size() * sizeof(phi[0]));
                 }
 
             public:
-                clattice() {}
-#endif
-            public:
+                void save(std::ofstream &f) const {
+                    f.write((char*)cmin.data(), cmin.size() * sizeof(cmin[0]));
+                    f.write((char*)hinv.data(), hinv.size() * sizeof(hinv[0]));
+                    f.write((char*)n.data(), n.size() * sizeof(n[0]));
+                    f.write((char*)stride.data(), stride.size() * sizeof(stride[0]));
+                    size_t n = phi.size();
+                    f.write((char*)&n, sizeof(n));
+                    f.write((char*)phi.data(), phi.size() * sizeof(phi[0]));
+                }
+
+                clattice(std::ifstream &f) {
+                    load(f);
+                }
+
                 // Control lattice initialization.
                 template <class CooIter, class ValIter>
                 clattice(

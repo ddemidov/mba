@@ -1,10 +1,5 @@
 #include <iostream>
 #include <fstream>
-
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-
-#define MBA_SERIALIZATION
 #include <mba.hpp>
 
 void store(const char *fname) {
@@ -29,14 +24,12 @@ void store(const char *fname) {
             );
 
     std::ofstream f(fname, std::ios::binary);
-    boost::archive::binary_oarchive ar(f);
-    ar << c;
+    c.save(f);
 }
 
 mba::cloud<2> load(const char *fname) {
     std::ifstream f(fname, std::ios::binary);
-    boost::archive::binary_iarchive ar(f);
-    mba::cloud<2> c(ar);
+    mba::cloud<2> c(f);
 
     return c;
 }
