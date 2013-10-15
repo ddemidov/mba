@@ -139,6 +139,7 @@ class cloud {
         }
 #endif
     public:
+        /// Constructor.
         /**
          * \param cmin   corner of bounding box with smallest coordinates.
          * \param cmax   corner of bounding box with largest coordinates.
@@ -154,36 +155,32 @@ class cloud {
                 std::array<size_t, NDIM> grid, size_t levels = 8, double tol = 1e-8
              )
         {
-#ifndef NDEBUG
-            assert(coo.size() == val.size());
+            init(cmin, cmax, coo.begin(), coo.end(), val.begin(), grid, levels, tol);
+        }
 
-            for(size_t k = 0; k < NDIM; ++k)
-                assert(grid[k] > 1);
-#endif
-
-            double res0 = std::accumulate(val.begin(), val.end(), 0.0,
-                    [](double sum, double v) { return sum + v * v; });
-
-            psi.reset( new clattice(cmin, cmax, grid, coo, val) );
-            double res = psi->update_data(coo, val);
-#ifdef MBA_VERBOSE
-            std::cout << "level  0: res = " << std::scientific << res << std::endl;
-#endif
-
-            for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
-                for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
-
-                std::unique_ptr<clattice> f( new clattice(cmin, cmax, grid, coo, val) );
-                res = f->update_data(coo, val);
-
-#ifdef MBA_VERBOSE
-                std::cout << "level " << std::setw(2) << k << std::scientific << ": res = " << res / res0 << std::endl;
-#endif
-
-                f->append_refined(*psi);
-                psi = std::move(f);
-            }
-
+        /// Constructor.
+        /**
+         * \param cmin      corner of bounding box with smallest coordinates.
+         * \param cmax      corner of bounding box with largest coordinates.
+         * \param coo_begin input iterator to the initial position in a
+         *                  sequence of scattered data coordinates.
+         * \param coo_end   input iterator to the final position in a sequence
+         *                  of scattered data coordinates.
+         * \param val_begin input iterator to the initial position in a
+         *                  sequence of scattered data values.
+         * \param grid      initial control lattice size (excluding boundary
+         *                  points).
+         * \param levels    number of levels in hierarchy.
+         * \param tol       stop if residual is less than this.
+         */
+        template <class CooIter, class ValIter>
+        cloud(
+                const point &cmin, const point &cmax,
+                CooIter coo_begin, CooIter coo_end, ValIter val_begin,
+                std::array<size_t, NDIM> grid, size_t levels = 8, double tol = 1e-8
+             )
+        {
+            init(cmin, cmax, coo_begin, coo_end, val_begin, grid, levels, tol);
         }
 
         /// Get interpolated value at given position.
@@ -198,6 +195,41 @@ class cloud {
             return (*psi)(make_array<double>(x...));
         }
     private:
+        template <class CooIter, class ValIter>
+        void init(
+                const point &cmin, const point &cmax,
+                CooIter coo_begin, CooIter coo_end, ValIter val_begin,
+                std::array<size_t, NDIM> grid, size_t levels = 8, double tol = 1e-8
+                )
+        {
+            for(size_t k = 0; k < NDIM; ++k) assert(grid[k] > 1);
+
+            double res0 = std::accumulate(
+                    val_begin, val_begin + (coo_end - coo_begin), 0.0,
+                    [](double sum, double v) { return sum + v * v; });
+
+            psi.reset( new clattice(cmin, cmax, grid, coo_begin, coo_end, val_begin) );
+            double res = psi->update_data(coo_begin, coo_end, val_begin);
+#ifdef MBA_VERBOSE
+            std::cout << "level  0: res = " << std::scientific << res << std::endl;
+#endif
+
+            for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
+                for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
+
+                std::unique_ptr<clattice> f(
+                        new clattice(cmin, cmax, grid, coo_begin, coo_end, val_begin)
+                        );
+                res = f->update_data(coo_begin, coo_end, val_begin);
+
+#ifdef MBA_VERBOSE
+                std::cout << "level " << std::setw(2) << k << std::scientific << ": res = " << res / res0 << std::endl;
+#endif
+
+                f->append_refined(*psi);
+                psi = std::move(f);
+            }
+        }
         /// Control lattice
         class clattice {
             private:
@@ -222,9 +254,10 @@ class cloud {
 #endif
             public:
                 // Control lattice initialization.
+                template <class CooIter, class ValIter>
                 clattice(
                         const point &c0, const point &cmax, std::array<size_t, NDIM> grid,
-                        const std::vector<point> &coo, const std::vector<double> &val
+                        CooIter coo_begin, CooIter coo_end, ValIter val_begin
                         ) : cmin(c0), n(grid)
                 {
                     for(size_t d = 0; d < NDIM; ++d) {
@@ -240,9 +273,9 @@ class cloud {
                     std::vector<double> delta(n[0] * stride[0], 0.0);
                     std::vector<double> omega(n[0] * stride[0], 0.0);
 
-                    auto p = coo.begin();
-                    auto v = val.begin();
-                    for(; p != coo.end(); ++p, ++v) {
+                    auto p = coo_begin;
+                    auto v = val_begin;
+                    for(; p != coo_end; ++p, ++v) {
                         if (!contained(c0, cmax, *p)) continue;
 
                         index i;
@@ -324,13 +357,17 @@ class cloud {
                 }
 
                 // Subtract interpolated values from data points.
-                double update_data(const std::vector<point> &coo, std::vector<double> &val) const {
-                    auto c = coo.begin();
-                    auto v = val.begin();
+                template <class CooIter, class ValIter>
+                double update_data(
+                        CooIter coo_begin, CooIter coo_end, ValIter val_begin
+                        ) const
+                {
+                    auto c = coo_begin;
+                    auto v = val_begin;
 
                     double res = 0;
 
-                    for(; c != coo.end(); ++c, ++v) {
+                    for(; c != coo_end; ++c, ++v) {
                         *v -= (*this)(*c);
 
                         res += (*v) * (*v);
