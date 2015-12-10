@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  Scattered data interpolation with multilevel B-Splines.
  */
 
+#include <fstream>
 #include <vector>
 #include <array>
 #include <memory>
