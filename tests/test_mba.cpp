@@ -2,14 +2,9 @@
 #include "catch.hpp"
 #include <mba/mba.hpp>
 
-TEST_CASE( "Extent generator" ) {
-    REQUIRE(mba::extents[6][7].dims[0]     == 6);
-    REQUIRE(mba::extents[6][7].dims[1]     == 7);
-    REQUIRE(mba::extents[6][7].dims.size() == 2);
-}
-
 TEST_CASE( "Grid iterator" ) {
-    mba::detail::grid_iterator<2> g(mba::extents[2][3]);
+    boost::array<size_t, 2> dim = {2, 3};
+    mba::detail::grid_iterator<2> g(dim);
 
     for(size_t j = 0; j < 2; ++j) {
         for(size_t i = 0; i < 3; ++i, ++g) {

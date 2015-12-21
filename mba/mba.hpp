@@ -52,25 +52,6 @@ THE SOFTWARE.
 namespace mba {
 namespace detail {
 
-/// Extent generator
-template <unsigned NDim>
-struct extent_gen {
-    boost::array<size_t, NDim> dims;
-
-    extent_gen<NDim+1> operator[](size_t n) const {
-        extent_gen<NDim+1> e;
-        boost::copy(dims, boost::begin(e.dims));
-        e.dims[NDim] = n;
-        return e;
-    }
-};
-
-} // namespace detail
-
-const detail::extent_gen<0> extents;
-
-namespace detail {
-
 template <size_t N, size_t M>
 struct power : boost::integral_constant<size_t, N * power<N, M-1>::value> {};
 
@@ -82,13 +63,6 @@ template <unsigned NDim>
 class grid_iterator {
     public:
         typedef boost::array<size_t, NDim> index;
-
-        explicit grid_iterator(const extent_gen<NDim> &ext)
-            : N(ext.dims), idx(0)
-        {
-            boost::fill(i, 0);
-            done = (i == N);
-        }
 
         explicit grid_iterator(const boost::array<size_t, NDim> &dims)
             : N(dims), idx(0)
