@@ -86,13 +86,25 @@ TEST_CASE( "Control lattice" ) {
     boost::array<boost::array<double, 2>, 2> coo = {0.0, 0.0, 1.0, 1.0};
     boost::array<double, 2> val = {1.0, 0.0};
 
-    mba::detail::control_lattice<2> phi(
-            lo, hi, grid,
-            boost::begin(coo), boost::end(coo), boost::begin(val)
-            );
+    SECTION("Dense") {
+        mba::detail::control_lattice_dense<2> phi(
+                lo, hi, grid,
+                boost::begin(coo), boost::end(coo), boost::begin(val)
+                );
 
-    REQUIRE(val[0] == phi(coo[0]));
-    REQUIRE(val[1] == phi(coo[1]));
+        REQUIRE(val[0] == phi(coo[0]));
+        REQUIRE(val[1] == phi(coo[1]));
+    }
+
+    SECTION("Sparse") {
+        mba::detail::control_lattice_sparse<2> phi(
+                lo, hi, grid,
+                boost::begin(coo), boost::end(coo), boost::begin(val)
+                );
+
+        REQUIRE(val[0] == phi(coo[0]));
+        REQUIRE(val[1] == phi(coo[1]));
+    }
 }
 
 TEST_CASE( "MBA" ) {

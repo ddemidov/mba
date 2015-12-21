@@ -31,10 +31,15 @@ THE SOFTWARE.
  * \brief  Multilevel B-spline interpolation.
  */
 
+#include <map>
+#include <utility>
+
 #include <boost/array.hpp>
 #include <boost/multi_array.hpp>
+#include <boost/container/flat_map.hpp>
 #include <boost/range/algorithm.hpp>
 #include <boost/range/numeric.hpp>
+#include <boost/iterator/transform_iterator.hpp>
 #include <boost/type_traits.hpp>
 #include <boost/scoped_ptr.hpp>
 
@@ -73,20 +78,20 @@ class grid_iterator {
         typedef boost::array<size_t, NDim> index;
 
         explicit grid_iterator(const extent_gen<NDim> &ext)
-            : N(ext.dims)
+            : N(ext.dims), idx(0)
         {
             boost::fill(i, 0);
             done = (i == N);
         }
 
         explicit grid_iterator(const boost::array<size_t, NDim> &dims)
-            : N(dims)
+            : N(dims), idx(0)
         {
             boost::fill(i, 0);
             done = (i == N);
         }
 
-        explicit grid_iterator(size_t dim) {
+        explicit grid_iterator(size_t dim) : idx(0) {
             boost::fill(N, dim);
             boost::fill(i, 0);
             done = (0 == dim);
@@ -100,6 +105,10 @@ class grid_iterator {
             return i;
         }
 
+        size_t position() const {
+            return idx;
+        }
+
         grid_iterator& operator++() {
             done = true;
             for(size_t d = NDim; d--; ) {
@@ -109,6 +118,10 @@ class grid_iterator {
                 }
                 i[d] = 0;
             }
+
+            ++idx;
+
+            return *this;
         }
 
         operator bool() const { return !done; }
@@ -116,6 +129,7 @@ class grid_iterator {
     private:
         index N, i;
         bool  done;
+        size_t idx;
 };
 
 template <typename T, size_t N>
@@ -190,14 +204,57 @@ boost::array<T, N> operator/(boost::array<T, N> a, T b) {
     return a;
 }
 
+// Value of k-th B-Spline basic function at t.
+inline double Bspline(size_t k, double t) {
+    assert(0 <= t && t < 1);
+    assert(k < 4);
+
+    switch (k) {
+        case 0:
+            return (t * (t * (-t + 3) - 3) + 1) / 6;
+        case 1:
+            return (t * t * (3 * t - 6) + 4) / 6;
+        case 2:
+            return (t * (t * (-3 * t + 3) + 3) + 1) / 6;
+        case 3:
+            return t * t * t / 6;
+        default:
+            return 0;
+    }
+}
+
+// Checks if p is between lo and hi
+template <typename T, size_t N>
+bool boxed(const boost::array<T,N> &lo, const boost::array<T,N> &p, const boost::array<T,N> &hi) {
+    for(unsigned i = 0; i < N; ++i) {
+        if (p[i] < lo[i] || p[i] > hi[i]) return false;
+    }
+    return true;
+}
+
+inline double safe_divide(double a, double b) {
+    return b == 0.0 ? 0.0 : a / b;
+}
+
 template <unsigned NDim>
 class control_lattice {
     public:
         typedef boost::array<size_t, NDim> index;
         typedef boost::array<double, NDim> point;
 
+        virtual ~control_lattice() {}
+
+        virtual double operator()(const point &p) const = 0;
+};
+
+template <unsigned NDim>
+class control_lattice_dense : public control_lattice<NDim> {
+    public:
+        typedef typename control_lattice<NDim>::index index;
+        typedef typename control_lattice<NDim>::point point;
+
         template <class CooIter, class ValIter>
-        control_lattice(
+        control_lattice_dense(
                 const point &coo_min, const point &coo_max, index grid_size,
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin
                 ) : cmin(coo_min), cmax(coo_max), grid(grid_size)
@@ -232,29 +289,23 @@ class control_lattice {
                 boost::array< double, power<4, NDim>::value > w;
                 double sum_w2 = 0.0;
 
-                {
-                    size_t idx = 0;
-                    for(grid_iterator<NDim> d(4); d; ++d, ++idx) {
-                        double prod = 1.0;
-                        for(unsigned k = 0; k < NDim; ++k) prod *= B(d[k], s[k]);
+                for(grid_iterator<NDim> d(4); d; ++d) {
+                    double prod = 1.0;
+                    for(unsigned k = 0; k < NDim; ++k) prod *= Bspline(d[k], s[k]);
 
-                        w[idx] = prod;
-                        sum_w2 += prod * prod;
-                    }
+                    w[d.position()] = prod;
+                    sum_w2 += prod * prod;
                 }
 
-                {
-                    size_t idx = 0;
-                    for(grid_iterator<NDim> d(4); d; ++d, ++idx) {
-                        double w1  = w[idx];
-                        double w2  = w1 * w1;
-                        double phi = (*v) * w1 / sum_w2;
+                for(grid_iterator<NDim> d(4); d; ++d) {
+                    double w1  = w[d.position()];
+                    double w2  = w1 * w1;
+                    double phi = (*v) * w1 / sum_w2;
 
-                        index j = i + (*d);
+                    index j = i + (*d);
 
-                        delta(j) += w2 * phi;
-                        omega(j) += w2;
-                    }
+                    delta(j) += w2 * phi;
+                    omega(j) += w2;
                 }
             }
 
@@ -280,7 +331,7 @@ class control_lattice {
 
             for(grid_iterator<NDim> d(4); d; ++d) {
                 double w = 1.0;
-                for(unsigned k = 0; k < NDim; ++k) w *= B(d[k], s[k]);
+                for(unsigned k = 0; k < NDim; ++k) w *= Bspline(d[k], s[k]);
 
                 f += w * phi(i + (*d));
             }
@@ -303,13 +354,15 @@ class control_lattice {
             return res;
         }
 
-        void append_refined(const control_lattice &r) {
+        void append_refined(const control_lattice_dense &r) {
             static const boost::array<double, 5> s = {
                 0.125, 0.500, 0.750, 0.500, 0.125
             };
 
             for(grid_iterator<NDim> i(r.grid); i; ++i) {
                 double f = r.phi(*i);
+
+                if (f == 0.0) continue;
 
                 for(grid_iterator<NDim> d(5); d; ++d) {
                     index j;
@@ -338,34 +391,112 @@ class control_lattice {
 
         boost::multi_array<double, NDim> phi;
 
-        // Value of k-th B-Spline at t.
-        static double B(size_t k, double t) {
-            assert(0 <= t && t < 1);
-            assert(k < 4);
+};
 
-            switch (k) {
-                case 0:
-                    return (t * (t * (-t + 3) - 3) + 1) / 6;
-                case 1:
-                    return (t * t * (3 * t - 6) + 4) / 6;
-                case 2:
-                    return (t * (t * (-3 * t + 3) + 3) + 1) / 6;
-                case 3:
-                    return t * t * t / 6;
-                default:
-                    return 0;
-            }
-        }
+template <unsigned NDim>
+class control_lattice_sparse : public control_lattice<NDim> {
+    public:
+        typedef typename control_lattice<NDim>::index index;
+        typedef typename control_lattice<NDim>::point point;
 
-        static bool boxed(const point &lo, const point &p, const point &hi) {
+        template <class CooIter, class ValIter>
+        control_lattice_sparse(
+                const point &coo_min, const point &coo_max, index grid_size,
+                CooIter coo_begin, CooIter coo_end, ValIter val_begin
+                ) : cmin(coo_min), cmax(coo_max), grid(grid_size)
+        {
             for(unsigned i = 0; i < NDim; ++i) {
-                if (p[i] < lo[i] || p[i] > hi[i]) return false;
+                hinv[i] = (grid[i] - 1) / (cmax[i] - cmin[i]);
+                cmin[i] -= 1 / hinv[i];
+                grid[i] += 2;
             }
-            return true;
+
+            std::map<index, two_doubles> dw;
+
+            CooIter p = coo_begin;
+            ValIter v = val_begin;
+
+            for(; p != coo_end; ++p, ++v) {
+                if (!boxed(coo_min, *p, coo_max)) continue;
+
+                index i;
+                point s;
+
+                for(unsigned d = 0; d < NDim; ++d) {
+                    double u = ((*p)[d] - cmin[d]) * hinv[d];
+                    i[d] = floor(u) - 1;
+                    s[d] = u - floor(u);
+                }
+
+                boost::array< double, power<4, NDim>::value > w;
+                double sum_w2 = 0.0;
+
+                for(grid_iterator<NDim> d(4); d; ++d) {
+                    double prod = 1.0;
+                    for(unsigned k = 0; k < NDim; ++k) prod *= Bspline(d[k], s[k]);
+
+                    w[d.position()] = prod;
+                    sum_w2 += prod * prod;
+                }
+
+                for(grid_iterator<NDim> d(4); d; ++d) {
+                    double w1  = w[d.position()];
+                    double w2  = w1 * w1;
+                    double phi = (*v) * w1 / sum_w2;
+
+                    two_doubles delta_omega = {w2 * phi, w2};
+
+                    append(dw[i + (*d)], delta_omega);
+                }
+            }
+
+            phi.insert(//boost::container::ordered_unique_range,
+                    boost::make_transform_iterator(dw.begin(), delta_over_omega),
+                    boost::make_transform_iterator(dw.end(),   delta_over_omega)
+                    );
         }
 
-        static double safe_divide(double a, double b) {
-            return b == 0.0 ? 0.0 : a / b;
+        double operator()(const point &p) const {
+            index i;
+            point s;
+
+            for(unsigned d = 0; d < NDim; ++d) {
+                double u = (p[d] - cmin[d]) * hinv[d];
+                i[d] = floor(u) - 1;
+                s[d] = u - floor(u);
+            }
+
+            double f = 0;
+
+            for(grid_iterator<NDim> d(4); d; ++d) {
+                double w = 1.0;
+                for(unsigned k = 0; k < NDim; ++k) w *= Bspline(d[k], s[k]);
+
+                f += w * get_phi(i + (*d));
+            }
+
+            return f;
+        }
+    private:
+        point cmin, cmax, hinv;
+        index grid;
+
+        typedef boost::container::flat_map<index, double> sparse_grid;
+        sparse_grid phi;
+
+        typedef boost::array<double, 2> two_doubles;
+
+        static std::pair<index, double> delta_over_omega(const std::pair<index, two_doubles> &dw) {
+            return std::make_pair(dw.first, safe_divide(dw.second[0], dw.second[1]));
+        }
+
+        static void append(two_doubles &a, const two_doubles &b) {
+            boost::transform(a, b, boost::begin(a), std::plus<double>());
+        }
+
+        double get_phi(const index &i) const {
+            typename sparse_grid::const_iterator c = phi.find(i);
+            return c == phi.end() ? 0.0 : c->second;
         }
 };
 
@@ -401,7 +532,8 @@ class MBA {
             return (*psi)(p);
         }
     private:
-        typedef detail::control_lattice<NDim> control_lattice;
+        typedef detail::control_lattice_dense<NDim> control_lattice;
+
         boost::scoped_ptr<control_lattice> psi;
 
         template <class CooIter, class ValIter>
