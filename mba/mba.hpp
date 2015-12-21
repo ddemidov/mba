@@ -31,6 +31,8 @@ THE SOFTWARE.
  * \brief  Multilevel B-spline interpolation.
  */
 
+#include <iostream>
+#include <iomanip>
 #include <map>
 #include <list>
 #include <utility>
@@ -45,6 +47,7 @@ THE SOFTWARE.
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/foreach.hpp>
+#include <boost/io/ios_state.hpp>
 
 namespace mba {
 namespace detail {
@@ -142,68 +145,14 @@ boost::array<T, N> operator+(boost::array<T, N> a, const boost::array<T, N> &b) 
 }
 
 template <typename T, size_t N>
-boost::array<T, N> operator+(T a, boost::array<T, N> b) {
-    boost::transform(b, boost::begin(b), std::bind1st(std::plus<T>(), a));
-    return b;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator+(boost::array<T, N> a, T b) {
-    boost::transform(a, boost::begin(a), std::bind2nd(std::plus<T>(), b));
-    return a;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator-(boost::array<T, N> a, const boost::array<T, N> &b) {
-    boost::transform(a, b, boost::begin(a), std::minus<T>());
-    return a;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator-(T a, boost::array<T, N> b) {
-    boost::transform(b, boost::begin(b), std::bind1st(std::minus<T>(), a));
-    return b;
-}
-
-template <typename T, size_t N>
 boost::array<T, N> operator-(boost::array<T, N> a, T b) {
     boost::transform(a, boost::begin(a), std::bind2nd(std::minus<T>(), b));
     return a;
 }
 
 template <typename T, size_t N>
-boost::array<T, N> operator*(boost::array<T, N> a, const boost::array<T, N> &b) {
-    boost::transform(a, b, boost::begin(a), std::multiplies<T>());
-    return a;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator*(T a, boost::array<T, N> b) {
-    boost::transform(b, boost::begin(b), std::bind1st(std::multiplies<T>(), a));
-    return b;
-}
-
-template <typename T, size_t N>
 boost::array<T, N> operator*(boost::array<T, N> a, T b) {
     boost::transform(a, boost::begin(a), std::bind2nd(std::multiplies<T>(), b));
-    return a;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator/(boost::array<T, N> a, const boost::array<T, N> &b) {
-    boost::transform(a, b, boost::begin(a), std::divides<T>());
-    return a;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator/(T a, boost::array<T, N> b) {
-    boost::transform(b, boost::begin(b), std::bind1st(std::divides<T>(), a));
-    return b;
-}
-
-template <typename T, size_t N>
-boost::array<T, N> operator/(boost::array<T, N> a, T b) {
-    boost::transform(a, boost::begin(a), std::bind2nd(std::divides<T>(), b));
     return a;
 }
 
@@ -248,6 +197,8 @@ class control_lattice {
         virtual ~control_lattice() {}
 
         virtual double operator()(const point &p) const = 0;
+
+        virtual void report(std::ostream&) const = 0;
 
         template <class CooIter, class ValIter>
         double residual(CooIter coo_begin, CooIter coo_end, ValIter val_begin) const {
@@ -355,6 +306,15 @@ class control_lattice_dense : public control_lattice<NDim> {
             }
 
             return f;
+        }
+
+        void report(std::ostream &os) const {
+            boost::io::ios_all_saver stream_state(os);
+
+            os << "dense [" << grid[0];
+            for(unsigned i = 1; i < NDim; ++i)
+                os << ", " << grid[i];
+            os << "] (" << phi.num_elements() * sizeof(double) << " bytes)";
         }
 
         void append_refined(const control_lattice_dense &r) {
@@ -487,6 +447,25 @@ class control_lattice_sparse : public control_lattice<NDim> {
 
             return f;
         }
+
+        void report(std::ostream &os) const {
+            boost::io::ios_all_saver stream_state(os);
+
+            size_t grid_size = grid[0];
+
+            os << "sparse [" << grid[0];
+            for(unsigned i = 1; i < NDim; ++i) {
+                os << ", " << grid[i];
+                grid_size *= grid[i];
+            }
+
+            size_t bytes = phi.size() * sizeof(std::pair<index, double>);
+            size_t dense_bytes = grid_size * sizeof(double);
+
+            double compression = static_cast<double>(bytes) / dense_bytes;
+            os << "] (" << bytes << " bytes, compression: "
+                << std::fixed << std::setprecision(2) << compression << ")";
+        }
     private:
         point cmin, cmax, hinv;
         index grid;
@@ -522,20 +501,20 @@ class MBA {
         MBA(
                 const point &coo_min, const point &coo_max, index grid,
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin,
-                unsigned max_levels = 8, double tol = 1e-8
+                unsigned max_levels = 8, double tol = 1e-8, double min_fill = 0.5
            )
         {
-            init(coo_min, coo_max, grid, coo_begin, coo_end, val_begin, max_levels, tol);
+            init(coo_min, coo_max, grid, coo_begin, coo_end, val_begin, max_levels, tol, min_fill);
         }
 
         template <class CooRange, class ValRange>
         MBA(
                 const point &coo_min, const point &coo_max, index grid,
                 CooRange coo, ValRange val,
-                unsigned max_levels = 8, double tol = 1e-8
+                unsigned max_levels = 8, double tol = 1e-8, double min_fill = 0.5
            )
         {
-            init(coo_min, coo_max, grid, boost::begin(coo), boost::end(coo), boost::begin(val), max_levels, tol);
+            init(coo_min, coo_max, grid, boost::begin(coo), boost::end(coo), boost::begin(val), max_levels, tol, min_fill);
         }
 
         double operator()(const point &p) const {
@@ -547,6 +526,16 @@ class MBA {
 
             return f;
         }
+
+        friend std::ostream& operator<<(std::ostream &os, const MBA &h) {
+            size_t level = 0;
+            BOOST_FOREACH(const boost::shared_ptr<lattice> &psi, h.cl) {
+                os << "level " << ++level << ": ";
+                psi->report(os);
+                os << std::endl;
+            }
+        }
+
     private:
         typedef detail::control_lattice<NDim>        lattice;
         typedef detail::control_lattice_dense<NDim>  dense_lattice;
@@ -559,7 +548,7 @@ class MBA {
         void init(
                 const point &cmin, const point &cmax, index grid,
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin,
-                unsigned max_levels, double tol
+                unsigned max_levels, double tol, double min_fill
                 )
         {
             using namespace mba::detail;
@@ -578,8 +567,8 @@ class MBA {
                 res = psi->residual(coo_begin, coo_end, val.begin());
                 double fill = psi->fill_ratio();
 
-                for(; (lev < max_levels) && (res > eps) && (fill > 0.5); ++lev) {
-                    grid = 2ul * grid - 1ul;
+                for(; (lev < max_levels) && (res > eps) && (fill > min_fill); ++lev) {
+                    grid = grid * 2ul - 1ul;
 
                     boost::shared_ptr<dense_lattice> f = boost::make_shared<dense_lattice>(
                             cmin, cmax, grid, coo_begin, coo_end, val.begin());
@@ -596,7 +585,7 @@ class MBA {
 
             // Create sparse tail of the hierrchy.
             for(; (lev < max_levels) && (res > eps); ++lev) {
-                grid = 2ul * grid - 1ul;
+                grid = grid * 2ul - 1ul;
 
                 cl.push_back(boost::make_shared<sparse_lattice>(
                         cmin, cmax, grid, coo_begin, coo_end, val.begin()));

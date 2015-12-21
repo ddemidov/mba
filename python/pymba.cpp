@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <memory>
 
 #include <mba/mba.hpp>
@@ -22,7 +23,8 @@ struct python_mba {
             py::array_t<double> &_coo,
             py::array_t<double> &_val,
             int max_levels = 8,
-            double tol = 1e-8
+            double tol = 1e-8,
+            double min_fill = 0.5
             )
     {
         typedef boost::array<size_t, NDim> index;
@@ -64,7 +66,8 @@ struct python_mba {
         std::copy_n(static_cast<const double*>(hi.ptr), n, boost::begin(cmax));
         std::copy_n(static_cast<const int*>(grid.ptr), n, boost::begin(grid_size));
 
-        m = std::make_shared< mba::MBA<NDim> >(cmin, cmax, grid_size, coo_begin, coo_end, val_begin, max_levels, tol);
+        m = std::make_shared< mba::MBA<NDim> >(
+                cmin, cmax, grid_size, coo_begin, coo_end, val_begin, max_levels, tol, min_fill);
     }
 
     py::array_t<double> apply(py::array_t<double> &_coo) const {
@@ -116,8 +119,7 @@ PYBIND11_PLUGIN(mba) {
                     py::array_t<int>&,
                     py::array_t<double>&,
                     py::array_t<double>&,
-                    int,
-                    double
+                    int, double, double
                 >(), "Constructor",
                 py::arg("lo"),
                 py::arg("hi"),
@@ -125,9 +127,15 @@ PYBIND11_PLUGIN(mba) {
                 py::arg("coo"),
                 py::arg("val"),
                 py::arg("max_levels") = 8,
-                py::arg("tol") = 1e-8
+                py::arg("tol") = 1e-8,
+                py::arg("min_fill") = 0.5
             )
-        .def("__call__", &python_mba<2>::apply, "apply")
+        .def("__call__", &python_mba<2>::apply)
+        .def("__repr__", [](const python_mba<2> &m){
+                std::ostringstream s;
+                s << *m.m;
+                return s.str();
+                })
         ;
 
     return m.ptr();

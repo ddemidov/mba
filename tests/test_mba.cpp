@@ -22,61 +22,6 @@ TEST_CASE( "Grid iterator" ) {
     REQUIRE(!static_cast<bool>(g));
 }
 
-TEST_CASE( "Array operations" ) {
-    using namespace mba::detail;
-
-    boost::array<double, 4> a = {2, 4, 6, 8};
-    boost::array<double, 4> b = {1, 2, 3, 4};
-
-    SECTION( "addition" ) {
-        boost::array<double, 4> c = a   + b;
-        boost::array<double, 4> d = a   + 2.0;
-        boost::array<double, 4> e = 2.0 + a;
-
-        for(int i = 0; i < 4; ++i) {
-            REQUIRE(c[i] == a[i] + b[i]);
-            REQUIRE(d[i] == a[i] + 2.0);
-            REQUIRE(e[i] == 2.0  + a[i]);
-        }
-    }
-
-    SECTION( "subtraction" ) {
-        boost::array<double, 4> c = a   - b;
-        boost::array<double, 4> d = a   - 2.0;
-        boost::array<double, 4> e = 2.0 - a;
-
-        for(int i = 0; i < 4; ++i) {
-            REQUIRE(c[i] == a[i] - b[i]);
-            REQUIRE(d[i] == a[i] - 2.0);
-            REQUIRE(e[i] == 2.0  - a[i]);
-        }
-    }
-
-    SECTION( "multiplication" ) {
-        boost::array<double, 4> c = a   * b;
-        boost::array<double, 4> d = a   * 2.0;
-        boost::array<double, 4> e = 2.0 * a;
-
-        for(int i = 0; i < 4; ++i) {
-            REQUIRE(c[i] == a[i] * b[i]);
-            REQUIRE(d[i] == a[i] * 2.0);
-            REQUIRE(e[i] == 2.0  * a[i]);
-        }
-    }
-
-    SECTION( "division" ) {
-        boost::array<double, 4> c = a   / b;
-        boost::array<double, 4> d = a   / 2.0;
-        boost::array<double, 4> e = 2.0 / a;
-
-        for(int i = 0; i < 4; ++i) {
-            REQUIRE(c[i] == a[i] / b[i]);
-            REQUIRE(d[i] == a[i] / 2.0);
-            REQUIRE(e[i] == 2.0  / a[i]);
-        }
-    }
-}
-
 TEST_CASE( "Control lattice" ) {
     boost::array<double, 2> lo = {-0.1, -0.1};
     boost::array<double, 2> hi = { 1.1,  1.1};
