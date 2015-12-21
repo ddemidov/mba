@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <map>
+#include <list>
 #include <utility>
 
 #include <boost/array.hpp>
@@ -41,7 +42,9 @@ THE SOFTWARE.
 #include <boost/range/numeric.hpp>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/type_traits.hpp>
-#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
+#include <boost/foreach.hpp>
 
 namespace mba {
 namespace detail {
@@ -245,6 +248,21 @@ class control_lattice {
         virtual ~control_lattice() {}
 
         virtual double operator()(const point &p) const = 0;
+
+        template <class CooIter, class ValIter>
+        double residual(CooIter coo_begin, CooIter coo_end, ValIter val_begin) const {
+            double res = 0.0;
+
+            CooIter p = coo_begin;
+            ValIter v = val_begin;
+
+            for(; p != coo_end; ++p, ++v) {
+                (*v) -= (*this)(*p);
+                res += (*v) * (*v);
+            }
+
+            return res;
+        }
 };
 
 template <unsigned NDim>
@@ -339,21 +357,6 @@ class control_lattice_dense : public control_lattice<NDim> {
             return f;
         }
 
-        template <class CooIter, class ValIter>
-        double residual(CooIter coo_begin, CooIter coo_end, ValIter val_begin) const {
-            double res = 0.0;
-
-            CooIter p = coo_begin;
-            ValIter v = val_begin;
-
-            for(; p != coo_end; ++p, ++v) {
-                (*v) -= (*this)(*p);
-                res += (*v) * (*v);
-            }
-
-            return res;
-        }
-
         void append_refined(const control_lattice_dense &r) {
             static const boost::array<double, 5> s = {
                 0.125, 0.500, 0.750, 0.500, 0.125
@@ -383,6 +386,13 @@ class control_lattice_dense : public control_lattice<NDim> {
                     phi(j) += f * c;
                 }
             }
+        }
+
+        double fill_ratio() const {
+            size_t total    = phi.num_elements();
+            size_t nonzeros = total - std::count(phi.data(), phi.data() + total, 0.0);
+
+            return static_cast<double>(nonzeros) / total;
         }
 
     private:
@@ -529,12 +539,21 @@ class MBA {
         }
 
         double operator()(const point &p) const {
-            return (*psi)(p);
+            double f = 0.0;
+
+            BOOST_FOREACH(const boost::shared_ptr<lattice> &psi, cl) {
+                f += (*psi)(p);
+            }
+
+            return f;
         }
     private:
-        typedef detail::control_lattice_dense<NDim> control_lattice;
+        typedef detail::control_lattice<NDim>        lattice;
+        typedef detail::control_lattice_dense<NDim>  dense_lattice;
+        typedef detail::control_lattice_sparse<NDim> sparse_lattice;
 
-        boost::scoped_ptr<control_lattice> psi;
+
+        std::list< boost::shared_ptr<lattice> > cl;
 
         template <class CooIter, class ValIter>
         void init(
@@ -548,21 +567,41 @@ class MBA {
             const ptrdiff_t n = std::distance(coo_begin, coo_end);
             std::vector<double> val(val_begin, val_begin + n);
 
-            psi.reset(new control_lattice(cmin, cmax, grid, coo_begin, coo_end, val.begin()));
+            double res, eps = tol * boost::inner_product(val, val, 0.0);
+            size_t lev = 1;
 
-            double eps = tol * boost::inner_product(val, val, 0.0);
-            double res = psi->residual(coo_begin, coo_end, val.begin());
+            // Create dense head of the hierarchy.
+            {
+                boost::shared_ptr<dense_lattice> psi = boost::make_shared<dense_lattice>(
+                        cmin, cmax, grid, coo_begin, coo_end, val.begin());
 
-            for(size_t k = 1; (k < max_levels) && (res > eps); ++k) {
+                res = psi->residual(coo_begin, coo_end, val.begin());
+                double fill = psi->fill_ratio();
+
+                for(; (lev < max_levels) && (res > eps) && (fill > 0.5); ++lev) {
+                    grid = 2ul * grid - 1ul;
+
+                    boost::shared_ptr<dense_lattice> f = boost::make_shared<dense_lattice>(
+                            cmin, cmax, grid, coo_begin, coo_end, val.begin());
+
+                    res = f->residual(coo_begin, coo_end, val.begin());
+                    fill = f->fill_ratio();
+
+                    f->append_refined(*psi);
+                    psi.swap(f);
+                }
+
+                cl.push_back(psi);
+            }
+
+            // Create sparse tail of the hierrchy.
+            for(; (lev < max_levels) && (res > eps); ++lev) {
                 grid = 2ul * grid - 1ul;
 
-                boost::scoped_ptr<control_lattice> f(
-                        new control_lattice(cmin, cmax, grid, coo_begin, coo_end, val.begin())
-                        );
+                cl.push_back(boost::make_shared<sparse_lattice>(
+                        cmin, cmax, grid, coo_begin, coo_end, val.begin()));
 
-                res = f->residual(coo_begin, coo_end, val.begin());
-                f->append_refined(*psi);
-                psi.swap(f);
+                res = cl.back()->residual(coo_begin, coo_end, val.begin());
             }
         }
 };
