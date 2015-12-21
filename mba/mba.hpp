@@ -421,7 +421,6 @@ class MBA {
             double eps = tol * boost::inner_product(val, val, 0.0);
             double res = psi->residual(coo_begin, coo_end, val.begin());
 
-            std::cout << "level 0: " << tol * res / eps << std::endl;
             for(size_t k = 1; (k < max_levels) && (res > eps); ++k) {
                 grid = 2ul * grid - 1ul;
 
@@ -430,7 +429,6 @@ class MBA {
                         );
 
                 res = f->residual(coo_begin, coo_end, val.begin());
-                std::cout << "level " << k << ": " << tol * res / eps << std::endl;
                 f->append_refined(*psi);
                 psi.swap(f);
             }
