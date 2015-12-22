@@ -145,6 +145,7 @@ void register_mba(py::module &m) {
 PYBIND11_PLUGIN(mba) {
     py::module m("mba", "Multilevel B-spline interpolation");
 
+    register_mba<1>(m);
     register_mba<2>(m);
     register_mba<3>(m);
 
