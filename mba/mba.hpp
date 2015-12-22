@@ -48,6 +48,8 @@ THE SOFTWARE.
 #include <boost/make_shared.hpp>
 #include <boost/foreach.hpp>
 #include <boost/io/ios_state.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/lu.hpp>
 
 namespace mba {
 namespace detail {
@@ -183,11 +185,69 @@ class control_lattice {
 
             for(; p != coo_end; ++p, ++v) {
                 (*v) -= (*this)(*p);
-                res += (*v) * (*v);
+                res = std::max(res, std::abs(*v));
             }
 
             return res;
         }
+};
+
+template <unsigned NDim>
+class linear_interpolation : public control_lattice<NDim> {
+    public:
+        typedef typename control_lattice<NDim>::point point;
+
+        template <class CooIter, class ValIter>
+        linear_interpolation(CooIter coo_begin, CooIter coo_end, ValIter val_begin)
+        {
+            namespace ublas = boost::numeric::ublas;
+
+            ublas::matrix<double> A(NDim+1, NDim+1); A.clear();
+            ublas::vector<double> f(NDim+1);         f.clear();
+
+            CooIter p = coo_begin;
+            ValIter v = val_begin;
+
+            for(; p != coo_end; ++p, ++v) {
+                boost::array<double, NDim+1> x;
+                boost::copy(*p, boost::begin(x));
+                x[NDim] = 1.0;
+
+                for(unsigned i = 0; i <= NDim; ++i) {
+                    for(unsigned j = 0; j <= NDim; ++j) {
+                        A(i,j) += x[i] * x[j];
+                    }
+                    f(i) += x[i] * (*v);
+                }
+            }
+
+            ublas::permutation_matrix<size_t> pm(NDim+1);
+            ublas::lu_factorize(A, pm);
+            ublas::lu_substitute(A, pm, f);
+
+            for(unsigned i = 0; i <= NDim; ++i) C[i] = f(i);
+        }
+
+        double operator()(const point &p) const {
+            double f = C[NDim];
+
+            for(unsigned i = 0; i < NDim; ++i)
+                f += C[i] * p[i];
+
+            return f;
+        }
+
+        void report(std::ostream &os) const {
+            boost::io::ios_all_saver stream_state(os);
+
+            os << "linear ("
+                << std::scientific << std::setprecision(2);
+            for(unsigned i = 0; i < NDim; ++i)
+                os << C[i] << " * x" << i << " + ";
+            os << C[NDim] << ")";
+        }
+    private:
+        boost::array<double, NDim+1> C;
 };
 
 template <unsigned NDim>
@@ -285,7 +345,7 @@ class control_lattice_dense : public control_lattice<NDim> {
         void report(std::ostream &os) const {
             boost::io::ios_all_saver stream_state(os);
 
-            os << "dense [" << grid[0];
+            os << "dense  [" << grid[0];
             for(unsigned i = 1; i < NDim; ++i)
                 os << ", " << grid[i];
             os << "] (" << phi.num_elements() * sizeof(double) << " bytes)";
@@ -512,6 +572,7 @@ class MBA {
 
     private:
         typedef detail::control_lattice<NDim>        lattice;
+        typedef detail::linear_interpolation<NDim>   plane;
         typedef detail::control_lattice_dense<NDim>  dense_lattice;
         typedef detail::control_lattice_sparse<NDim> sparse_lattice;
 
@@ -530,9 +591,18 @@ class MBA {
             const ptrdiff_t n = std::distance(coo_begin, coo_end);
             std::vector<double> val(val_begin, val_begin + n);
 
-            double res, eps = tol * boost::inner_product(val, val, 0.0);
-            size_t lev = 1;
+            double res, eps = 0.0;
+            for(size_t i = 0; i < n; ++i)
+                eps = std::max(eps, std::abs(val[i]));
+            eps *= tol;
 
+            // Start with linear interpolation.
+            cl.push_back(boost::make_shared<plane>(coo_begin, coo_end, val.begin()));
+            res = cl.back()->residual(coo_begin, coo_end, val.begin());
+
+            if (res <= eps) return;
+
+            size_t lev = 1;
             // Create dense head of the hierarchy.
             {
                 boost::shared_ptr<dense_lattice> psi = boost::make_shared<dense_lattice>(
