@@ -42,7 +42,8 @@ int main() {
 }
 ~~~
 
-Same example in python:
+Same example in python (also see
+[python/example.ipynb](http://nbviewer.ipython.org/github/ddemidov/mba/blob/master/python/example.ipynb)):
 ~~~{.py}
 from mba import *
 
