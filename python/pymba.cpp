@@ -109,10 +109,12 @@ struct python_mba {
 };
 
 
-PYBIND11_PLUGIN(mba) {
-    py::module m("mba", "Multilevel B-spline interpolation");
+template <unsigned NDim>
+void register_mba(py::module &m) {
+    std::string name = "mba" + std::to_string(NDim);
+    std::string desc = "Multilevel B-Spline in " + std::to_string(NDim) + "D";
 
-    py::class_< python_mba<2> >(m, "mba2", "Multilevel B-Spline in 2D")
+    py::class_< python_mba<NDim> >(m, name.c_str(), desc.c_str())
         .def(py::init<
                     py::array_t<double>&,
                     py::array_t<double>&,
@@ -130,13 +132,21 @@ PYBIND11_PLUGIN(mba) {
                 py::arg("tol") = 1e-8,
                 py::arg("min_fill") = 0.5
             )
-        .def("__call__", &python_mba<2>::apply)
-        .def("__repr__", [](const python_mba<2> &m){
+        .def("__call__", &python_mba<NDim>::apply)
+        .def("__repr__", [](const python_mba<NDim> &m){
                 std::ostringstream s;
                 s << *m.m;
                 return s.str();
                 })
         ;
+
+}
+
+PYBIND11_PLUGIN(mba) {
+    py::module m("mba", "Multilevel B-spline interpolation");
+
+    register_mba<2>(m);
+    register_mba<3>(m);
 
     return m.ptr();
 }
