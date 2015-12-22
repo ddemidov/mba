@@ -53,11 +53,29 @@ TEST_CASE( "MBA" ) {
 
     boost::array<size_t, 2> grid = {2, 2};
 
-    boost::array<boost::array<double, 2>, 2> coo = {0.0, 0.0, 1.0, 1.0};
-    boost::array<double, 2> val = {1.0, 0.0};
+    SECTION( "few points" ) {
+        boost::array<double, 2> coo[] = {0, 0, 1, 1};
+        double val[] = {1.0, 0.0};
 
-    mba::MBA<2> phi(lo, hi, grid, coo, val, 8, 1e-8);
+        size_t n = boost::size(coo);
 
-    REQUIRE(std::abs(val[0] - phi(coo[0])) < 1e-8);
-    REQUIRE(std::abs(val[1] - phi(coo[1])) < 1e-8);
+        mba::MBA<2> phi(lo, hi, grid, coo, coo + n, val, 8, 1e-8);
+
+        for(size_t i = 0; i < n; ++i) {
+            REQUIRE(std::abs(val[i] - phi(coo[i])) < 1e-8);
+        }
+    }
+
+    SECTION( "enough points" ) {
+        boost::array<double, 2> coo[] = {0, 0, 0, 1, 1, 0, 1, 1};
+        double val[] = {1.0, 0.5, 0.75, 0.0};
+
+        size_t n = boost::size(coo);
+
+        mba::MBA<2> phi(lo, hi, grid, coo, coo + n, val, 8, 1e-8);
+
+        for(size_t i = 0; i < n; ++i) {
+            REQUIRE(std::abs(val[i] - phi(coo[i])) < 1e-8);
+        }
+    }
 }

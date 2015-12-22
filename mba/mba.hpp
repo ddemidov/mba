@@ -202,13 +202,25 @@ class linear_interpolation : public control_lattice<NDim> {
         {
             namespace ublas = boost::numeric::ublas;
 
+            size_t n = std::distance(coo_begin, coo_end);
+
+            if (n <= NDim) {
+                // Not enough points to get a unique plane
+                boost::fill(C, 0.0);
+                C[NDim] = std::accumulate(val_begin, val_begin + n, 0.0) / n;
+                return;
+            }
+
             ublas::matrix<double> A(NDim+1, NDim+1); A.clear();
             ublas::vector<double> f(NDim+1);         f.clear();
 
             CooIter p = coo_begin;
             ValIter v = val_begin;
 
-            for(; p != coo_end; ++p, ++v) {
+            double sum_val = 0.0;
+
+            // Solve least-squares problem to get approximation with a plane.
+            for(; p != coo_end; ++p, ++v, ++n) {
                 boost::array<double, NDim+1> x;
                 boost::copy(*p, boost::begin(x));
                 x[NDim] = 1.0;
@@ -219,13 +231,28 @@ class linear_interpolation : public control_lattice<NDim> {
                     }
                     f(i) += x[i] * (*v);
                 }
+
+                sum_val += (*v);
             }
 
             ublas::permutation_matrix<size_t> pm(NDim+1);
             ublas::lu_factorize(A, pm);
-            ublas::lu_substitute(A, pm, f);
 
-            for(unsigned i = 0; i <= NDim; ++i) C[i] = f(i);
+            bool singular = false;
+            for(unsigned i = 0; i <= NDim; ++i) {
+                if (A(i,i) == 0.0) {
+                    singular = true;
+                    break;
+                }
+            }
+
+            if (singular) {
+                boost::fill(C, 0.0);
+                C[NDim] = sum_val / n;
+            } else {
+                ublas::lu_substitute(A, pm, f);
+                for(unsigned i = 0; i <= NDim; ++i) C[i] = f(i);
+            }
         }
 
         double operator()(const point &p) const {
@@ -535,20 +562,30 @@ class MBA {
         MBA(
                 const point &coo_min, const point &coo_max, index grid,
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin,
-                unsigned max_levels = 8, double tol = 1e-8, double min_fill = 0.5
+                unsigned max_levels = 8, double tol = 1e-8, double min_fill = 0.5,
+                bool use_linear = true
            )
         {
-            init(coo_min, coo_max, grid, coo_begin, coo_end, val_begin, max_levels, tol, min_fill);
+            init(
+                    coo_min, coo_max, grid,
+                    coo_begin, coo_end, val_begin,
+                    max_levels, tol, min_fill, use_linear
+                );
         }
 
         template <class CooRange, class ValRange>
         MBA(
                 const point &coo_min, const point &coo_max, index grid,
                 CooRange coo, ValRange val,
-                unsigned max_levels = 8, double tol = 1e-8, double min_fill = 0.5
+                unsigned max_levels = 8, double tol = 1e-8, double min_fill = 0.5,
+                bool use_linear = true
            )
         {
-            init(coo_min, coo_max, grid, boost::begin(coo), boost::end(coo), boost::begin(val), max_levels, tol, min_fill);
+            init(
+                    coo_min, coo_max, grid,
+                    boost::begin(coo), boost::end(coo), boost::begin(val),
+                    max_levels, tol, min_fill, use_linear
+                );
         }
 
         double operator()(const point &p) const {
@@ -568,6 +605,7 @@ class MBA {
                 psi->report(os);
                 os << std::endl;
             }
+            return os;
         }
 
     private:
@@ -583,7 +621,8 @@ class MBA {
         void init(
                 const point &cmin, const point &cmax, index grid,
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin,
-                unsigned max_levels, double tol, double min_fill
+                unsigned max_levels, double tol, double min_fill,
+                bool use_linear
                 )
         {
             using namespace mba::detail;
@@ -592,15 +631,16 @@ class MBA {
             std::vector<double> val(val_begin, val_begin + n);
 
             double res, eps = 0.0;
-            for(size_t i = 0; i < n; ++i)
+            for(ptrdiff_t i = 0; i < n; ++i)
                 eps = std::max(eps, std::abs(val[i]));
             eps *= tol;
 
-            // Start with linear interpolation.
-            cl.push_back(boost::make_shared<plane>(coo_begin, coo_end, val.begin()));
-            res = cl.back()->residual(coo_begin, coo_end, val.begin());
-
-            if (res <= eps) return;
+            if (use_linear) {
+                // Start with linear interpolation.
+                cl.push_back(boost::make_shared<plane>(coo_begin, coo_end, val.begin()));
+                res = cl.back()->residual(coo_begin, coo_end, val.begin());
+                if (res <= eps) return;
+            }
 
             size_t lev = 1;
             // Create dense head of the hierarchy.

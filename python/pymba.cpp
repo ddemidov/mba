@@ -24,7 +24,8 @@ struct python_mba {
             py::array_t<double> &_val,
             int max_levels = 8,
             double tol = 1e-8,
-            double min_fill = 0.5
+            double min_fill = 0.5,
+            bool use_linear = true
             )
     {
         typedef boost::array<size_t, NDim> index;
@@ -67,7 +68,10 @@ struct python_mba {
         std::copy_n(static_cast<const int*>(grid.ptr), n, boost::begin(grid_size));
 
         m = std::make_shared< mba::MBA<NDim> >(
-                cmin, cmax, grid_size, coo_begin, coo_end, val_begin, max_levels, tol, min_fill);
+                cmin, cmax, grid_size,
+                coo_begin, coo_end, val_begin,
+                max_levels, tol, min_fill, use_linear
+                );
     }
 
     py::array_t<double> apply(py::array_t<double> &_coo) const {
@@ -121,7 +125,7 @@ void register_mba(py::module &m) {
                     py::array_t<int>&,
                     py::array_t<double>&,
                     py::array_t<double>&,
-                    int, double, double
+                    int, double, double, bool
                 >(), "Constructor",
                 py::arg("lo"),
                 py::arg("hi"),
@@ -130,7 +134,8 @@ void register_mba(py::module &m) {
                 py::arg("val"),
                 py::arg("max_levels") = 8,
                 py::arg("tol") = 1e-8,
-                py::arg("min_fill") = 0.5
+                py::arg("min_fill") = 0.5,
+                py::arg("use_linear") = true
             )
         .def("__call__", &python_mba<NDim>::apply)
         .def("__repr__", [](const python_mba<NDim> &m){
