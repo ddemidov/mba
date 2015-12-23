@@ -1,3 +1,7 @@
 build*
 .*.swp
 tags
+RELEASE-VERSION
+dist
+*.egg-info
+__pycache__

@@ -1,0 +1,3 @@
+include mba/mba.hpp
+include python/pybind11/include/pybind11/*.h
+include RELEASE-VERSION
