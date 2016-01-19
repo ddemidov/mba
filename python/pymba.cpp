@@ -20,12 +20,12 @@ void precondition(bool cond, std::string error_message) {
 template <unsigned NDim>
 struct python_mba {
     python_mba(
-            py::array_t<double> &lo,
-            py::array_t<double> &hi,
-            py::array_t<int>    &grid,
-            py::array_t<double> &coo,
-            py::array_t<double> &val,
-            const std::function<double(std::vector<double>)> &f,
+            py::array_t<double> lo,
+            py::array_t<double> hi,
+            py::array_t<int>    grid,
+            py::array_t<double> coo,
+            py::array_t<double> val,
+            std::function<double(std::vector<double>)> f,
             int max_levels = 8,
             double tol = 1e-8,
             double min_fill = 0.5
@@ -40,11 +40,11 @@ struct python_mba {
     }
 
     python_mba(
-            py::array_t<double> &lo,
-            py::array_t<double> &hi,
-            py::array_t<int>    &grid,
-            py::array_t<double> &coo,
-            py::array_t<double> &val,
+            py::array_t<double> lo,
+            py::array_t<double> hi,
+            py::array_t<int>    grid,
+            py::array_t<double> coo,
+            py::array_t<double> val,
             int max_levels = 8,
             double tol = 1e-8,
             double min_fill = 0.5
@@ -54,7 +54,7 @@ struct python_mba {
         init(lo, hi, grid, coo, val, none, max_levels, tol, min_fill);
     }
 
-    py::array_t<double> apply(py::array_t<double> &_coo) const {
+    py::array_t<double> apply(py::array_t<double> _coo) const {
         typedef boost::array<double, NDim> point;
 
         py::buffer_info coo = _coo.request();
@@ -75,7 +75,7 @@ struct python_mba {
             strides[i-1] = strides[i] * shape[i];
         }
 
-        const size_t n = coo.count / NDim;
+        const size_t n = coo.size / NDim;
 
         const point *coo_begin = static_cast<const point*>(coo.ptr);
         const point *coo_end   = coo_begin + n;
@@ -92,11 +92,11 @@ struct python_mba {
     std::shared_ptr< mba::MBA<NDim> > m;
 
     void init(
-            py::array_t<double> &_lo,
-            py::array_t<double> &_hi,
-            py::array_t<int>    &_grid,
-            py::array_t<double> &_coo,
-            py::array_t<double> &_val,
+            py::array_t<double> _lo,
+            py::array_t<double> _hi,
+            py::array_t<int>    _grid,
+            py::array_t<double> _coo,
+            py::array_t<double> _val,
             boost::function<double(const boost::array<double,NDim>&)> initial,
             int max_levels = 8,
             double tol = 1e-8,
@@ -164,11 +164,11 @@ void register_mba(py::module &m) {
 
     py::class_< python_mba<NDim> >(m, name.c_str(), desc.c_str())
         .def(py::init<
-                    py::array_t<double>&,
-                    py::array_t<double>&,
-                    py::array_t<int>&,
-                    py::array_t<double>&,
-                    py::array_t<double>&,
+                    py::array_t<double>,
+                    py::array_t<double>,
+                    py::array_t<int>,
+                    py::array_t<double>,
+                    py::array_t<double>,
                     int, double, double
                 >(), "Constructor",
                 py::arg("lo"),
@@ -181,12 +181,12 @@ void register_mba(py::module &m) {
                 py::arg("min_fill") = 0.5
             )
         .def(py::init<
-                    py::array_t<double>&,
-                    py::array_t<double>&,
-                    py::array_t<int>&,
-                    py::array_t<double>&,
-                    py::array_t<double>&,
-                    const std::function<double(std::vector<double>)>&,
+                    py::array_t<double>,
+                    py::array_t<double>,
+                    py::array_t<int>,
+                    py::array_t<double>,
+                    py::array_t<double>,
+                    std::function<double(std::vector<double>)>,
                     int, double, double
                 >(), "Constructor",
                 py::arg("lo"),
