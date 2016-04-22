@@ -121,14 +121,14 @@ boost::array<T, N> operator+(boost::array<T, N> a, const boost::array<T, N> &b) 
     return a;
 }
 
-template <typename T, size_t N>
-boost::array<T, N> operator-(boost::array<T, N> a, T b) {
+template <typename T, size_t N, typename C>
+boost::array<T, N> operator-(boost::array<T, N> a, C b) {
     boost::transform(a, boost::begin(a), std::bind2nd(std::minus<T>(), b));
     return a;
 }
 
-template <typename T, size_t N>
-boost::array<T, N> operator*(boost::array<T, N> a, T b) {
+template <typename T, size_t N, typename C>
+boost::array<T, N> operator*(boost::array<T, N> a, C b) {
     boost::transform(a, boost::begin(a), std::bind2nd(std::multiplies<T>(), b));
     return a;
 }
