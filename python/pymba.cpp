@@ -85,7 +85,7 @@ struct python_mba {
         std::transform(coo_begin, coo_end, val.begin(), std::ref(*m));
 
         return py::array(py::buffer_info(val.data(), sizeof(double),
-                    py::format_descriptor<double>::value(),
+                    py::format_descriptor<double>::value,
                     ndim-1, shape, strides));
     }
 
