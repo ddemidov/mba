@@ -138,9 +138,9 @@ struct python_mba {
         point cmin, cmax;
         index grid_size;
 
-        std::copy_n(static_cast<const double*>(lo.ptr), n, boost::begin(cmin));
-        std::copy_n(static_cast<const double*>(hi.ptr), n, boost::begin(cmax));
-        std::copy_n(static_cast<const int*>(grid.ptr), n, boost::begin(grid_size));
+        std::copy_n(static_cast<const double*>(lo.ptr), NDim, boost::begin(cmin));
+        std::copy_n(static_cast<const double*>(hi.ptr), NDim, boost::begin(cmax));
+        std::copy_n(static_cast<const int*>(grid.ptr),  NDim, boost::begin(grid_size));
 
         if (!initial) {
             initial = mba::linear_approximation<NDim>(coo_begin, coo_end, val_begin);
