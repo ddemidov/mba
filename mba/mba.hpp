@@ -117,19 +117,19 @@ class grid_iterator {
 
 template <typename T, size_t N>
 boost::array<T, N> operator+(boost::array<T, N> a, const boost::array<T, N> &b) {
-    boost::transform(a, b, boost::begin(a), std::plus<T>());
+    for(size_t i = 0; i < N; ++i) a[i] += b[i];
     return a;
 }
 
 template <typename T, size_t N, typename C>
 boost::array<T, N> operator-(boost::array<T, N> a, C b) {
-	boost::transform(a, boost::begin(a), std::bind(std::minus<T>(), std::placeholders::_1, b));
+    for(auto &v : a) v -= b;
     return a;
 }
 
 template <typename T, size_t N, typename C>
 boost::array<T, N> operator*(boost::array<T, N> a, C b) {
-	boost::transform(a, boost::begin(a), std::bind(std::multiplies<T>(), std::placeholders::_1, b));
+    for(auto &v : a) v *= b;
     return a;
 }
 
