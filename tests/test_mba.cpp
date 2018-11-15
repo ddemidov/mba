@@ -3,7 +3,7 @@
 #include <mba/mba.hpp>
 
 TEST_CASE( "Grid iterator" ) {
-    boost::array<size_t, 2> dim = {2, 3};
+    mba::index<2> dim = {2, 3};
     mba::detail::grid_iterator<2> g(dim);
 
     for(size_t j = 0; j < 2; ++j) {
@@ -18,18 +18,18 @@ TEST_CASE( "Grid iterator" ) {
 }
 
 TEST_CASE( "Control lattice" ) {
-    boost::array<double, 2> lo = {-0.1, -0.1};
-    boost::array<double, 2> hi = { 1.1,  1.1};
+    mba::point<2> lo = {-0.1, -0.1};
+    mba::point<2> hi = { 1.1,  1.1};
 
-    boost::array<size_t, 2> grid = {9, 9};
+    mba::index<2> grid = {9, 9};
 
-    boost::array<boost::array<double, 2>, 2> coo = {0.0, 0.0, 1.0, 1.0};
-    boost::array<double, 2> val = {1.0, 0.0};
+    std::array<mba::point<2>, 2> coo = {0.0, 0.0, 1.0, 1.0};
+    std::array<double, 2> val = {1.0, 0.0};
 
     SECTION("Dense") {
         mba::detail::control_lattice_dense<2> phi(
                 lo, hi, grid,
-                boost::begin(coo), boost::end(coo), boost::begin(val)
+                std::begin(coo), std::end(coo), std::begin(val)
                 );
 
         REQUIRE(val[0] == phi(coo[0]));
@@ -39,7 +39,7 @@ TEST_CASE( "Control lattice" ) {
     SECTION("Sparse") {
         mba::detail::control_lattice_sparse<2> phi(
                 lo, hi, grid,
-                boost::begin(coo), boost::end(coo), boost::begin(val)
+                std::begin(coo), std::end(coo), std::begin(val)
                 );
 
         REQUIRE(val[0] == phi(coo[0]));
@@ -48,18 +48,17 @@ TEST_CASE( "Control lattice" ) {
 }
 
 TEST_CASE( "MBA" ) {
-    boost::array<double, 2> lo = {-0.1, -0.1};
-    boost::array<double, 2> hi = { 1.1,  1.1};
+    mba::point<2> lo = {-0.1, -0.1};
+    mba::point<2> hi = { 1.1,  1.1};
 
-    boost::array<size_t, 2> grid = {2, 2};
+    mba::index<2> grid = {2, 2};
 
     SECTION( "few points" ) {
-        boost::array<double, 2> coo[] = {0, 0, 1, 1};
-        double val[] = {1.0, 0.0};
+        const int n = 2;
+        std::array<mba::point<2>, n> coo = {0, 0, 1, 1};
+        std::array<double, n> val = {1.0, 0.0};
 
-        size_t n = boost::size(coo);
-
-        mba::MBA<2> phi(lo, hi, grid, coo, coo + n, val, 8, 1e-8);
+        mba::MBA<2> phi(lo, hi, grid, coo, val, 8, 1e-8);
 
         for(size_t i = 0; i < n; ++i) {
             REQUIRE(std::abs(val[i] - phi(coo[i])) < 1e-8);
@@ -67,12 +66,11 @@ TEST_CASE( "MBA" ) {
     }
 
     SECTION( "enough points" ) {
-        boost::array<double, 2> coo[] = {0, 0, 0, 1, 1, 0, 1, 1};
-        double val[] = {1.0, 0.5, 0.75, 0.0};
+        const int n = 4;
+        std::array<mba::point<2>, n> coo = {0, 0, 0, 1, 1, 0, 1, 1};
+        std::array<double, n> val = {1.0, 0.5, 0.75, 0.0};
 
-        size_t n = boost::size(coo);
-
-        mba::MBA<2> phi(lo, hi, grid, coo, coo + n, val, 8, 1e-8);
+        mba::MBA<2> phi(lo, hi, grid, coo, val, 8, 1e-8);
 
         for(size_t i = 0; i < n; ++i) {
             REQUIRE(std::abs(val[i] - phi(coo[i])) < 1e-8);

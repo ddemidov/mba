@@ -8,11 +8,9 @@ Example of 2D interpolation in C++:
 ~~~{.cpp}
 #include <mba.hpp>
 
-typedef boost::array<double, 2> point2d;
-
 int main() {
     // Coordinates of data points.
-    std::vector<point2d> coo = {
+    std::vector<mba::point<2>> coo = {
         {0.0, 0.0},
         {0.0, 1.0},
         {1.0, 0.0},
@@ -27,18 +25,17 @@ int main() {
     };
 
     // Bounding box containing the data points.
-    point2d lo = {-0.1, -0.1};
-    point2d hi = { 1.1,  1.1};
+    mba::point<2> lo = {-0.1, -0.1};
+    mba::point<2> hi = { 1.1,  1.1};
 
     // Initial grid size.
-    boost::array<size_t, 2> grid = {3, 3};
+    mba::index<2> grid = {3, 3};
 
     // Algorithm setup.
     mba::MBA<2> interp(lo, hi, grid, coo, val);
 
     // Get interpolated value at arbitrary location.
-    point2d p = {0.3, 0.7};
-    double w = interp(p);
+    double w = interp(mba::point<2>{0.3, 0.7});
 }
 ~~~
 

@@ -31,9 +31,8 @@ struct python_mba {
             double min_fill = 0.5
             )
     {
-        boost::function<double(const boost::array<double,NDim>&)> initial =
-            [f](const boost::array<double, NDim> &a) {
-                return f(std::vector<double>(boost::begin(a), boost::end(a)));
+        auto initial = [f](const std::array<double, NDim> &a) {
+                return f(std::vector<double>(std::begin(a), std::end(a)));
             };
 
         init(lo, hi, grid, coo, val, initial, max_levels, tol, min_fill);
@@ -50,12 +49,12 @@ struct python_mba {
             double min_fill = 0.5
             )
     {
-        boost::function<double(const boost::array<double,NDim>&)> none;
+        std::function<double(const std::array<double,NDim>&)> none;
         init(lo, hi, grid, coo, val, none, max_levels, tol, min_fill);
     }
 
     py::array_t<double> apply(py::array_t<double> _coo) const {
-        typedef boost::array<double, NDim> point;
+        typedef std::array<double, NDim> point;
 
         py::buffer_info coo = _coo.request();
 
@@ -97,14 +96,14 @@ struct python_mba {
             py::array_t<int>    _grid,
             py::array_t<double> _coo,
             py::array_t<double> _val,
-            boost::function<double(const boost::array<double,NDim>&)> initial,
+            std::function<double(const std::array<double,NDim>&)> initial,
             int max_levels = 8,
             double tol = 1e-8,
             double min_fill = 0.5
             )
     {
-        typedef boost::array<size_t, NDim> index;
-        typedef boost::array<double, NDim> point;
+        typedef std::array<size_t, NDim> index;
+        typedef std::array<double, NDim> point;
 
         py::buffer_info lo   = _lo.request();
         py::buffer_info hi   = _hi.request();
@@ -138,9 +137,9 @@ struct python_mba {
         point cmin, cmax;
         index grid_size;
 
-        std::copy_n(static_cast<const double*>(lo.ptr), NDim, boost::begin(cmin));
-        std::copy_n(static_cast<const double*>(hi.ptr), NDim, boost::begin(cmax));
-        std::copy_n(static_cast<const int*>(grid.ptr),  NDim, boost::begin(grid_size));
+        std::copy_n(static_cast<const double*>(lo.ptr), NDim, std::begin(cmin));
+        std::copy_n(static_cast<const double*>(hi.ptr), NDim, std::begin(cmax));
+        std::copy_n(static_cast<const int*>(grid.ptr),  NDim, std::begin(grid_size));
 
         if (!initial) {
             initial = mba::linear_approximation<NDim>(coo_begin, coo_end, val_begin);
