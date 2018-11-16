@@ -1,6 +1,6 @@
 ### Scattered data interpolation with multilevel B-Splines
 
-This library provides the adaptive MBA algorithm from [1] implemented in C++.
+This library provides the adaptive MBA algorithm from [1] implemented in C++11.
 This is a fast algorithm for scattered N-dimensional data interpolation and
 approximation. Python bindings are also provided.
 
