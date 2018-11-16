@@ -5,7 +5,7 @@ This is a fast algorithm for scattered N-dimensional data interpolation and
 approximation. Python bindings are also provided.
 
 Example of 2D interpolation in C++:
-~~~{.cpp}
+```cpp
 #include <mba.hpp>
 
 int main() {
@@ -37,11 +37,11 @@ int main() {
     // Get interpolated value at arbitrary location.
     double w = interp(mba::point<2>{0.3, 0.7});
 }
-~~~
+```
 
 Same example in python (also see
 [python/example.ipynb](http://nbviewer.ipython.org/github/ddemidov/mba/blob/master/python/example.ipynb)):
-~~~{.py}
+```.py
 from mba import *
 
 interp = mba2(lo=[-0.1,-0.1], hi=[1.1,1.1], grid=[3,3],
@@ -51,7 +51,7 @@ interp = mba2(lo=[-0.1,-0.1], hi=[1.1,1.1], grid=[3,3],
               )
 
 w = interp([[0.3, 0.7]])
-~~~
+```
 
 ### References
 
