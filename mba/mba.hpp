@@ -42,6 +42,7 @@ THE SOFTWARE.
 #include <functional>
 #include <type_traits>
 #include <utility>
+#include <iterator>
 
 #include <cmath>
 #include <cassert>
@@ -89,6 +90,14 @@ class multi_array {
 
         T& operator()(index<N> i) {
             return buf[idx(i)];
+        }
+
+        T operator[](size_t i) const {
+            return buf[i];
+        }
+
+        T& operator[](size_t i) {
+            return buf[i];
         }
 
         const T* data() const {
@@ -306,62 +315,85 @@ class control_lattice_dense : public control_lattice<NDim> {
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin
                 ) : cmin(coo_min), cmax(coo_max), grid(grid_size)
         {
+            static_assert(
+                    std::is_same<
+                        typename std::iterator_traits<CooIter>::iterator_category,
+                        std::random_access_iterator_tag
+                        >::value,
+                    "CooIter should be a random access iterator");
+            static_assert(
+                    std::is_same<
+                        typename std::iterator_traits<ValIter>::iterator_category,
+                        std::random_access_iterator_tag
+                        >::value,
+                    "ValIter should be a random access iterator");
+
             for(unsigned i = 0; i < NDim; ++i) {
                 hinv[i] = (grid[i] - 1) / (cmax[i] - cmin[i]);
                 cmin[i] -= 1 / hinv[i];
                 grid[i] += 2;
             }
 
-            multi_array<double, NDim> delta(grid);
-            multi_array<double, NDim> omega(grid);
+            phi.resize(grid);
+            std::fill(phi.data(), phi.data() + phi.size(), 0.0);
 
-            std::fill(delta.data(), delta.data() + delta.size(), 0.0);
-            std::fill(omega.data(), omega.data() + omega.size(), 0.0);
+            ptrdiff_t n = std::distance(coo_begin, coo_end);
+            size_t    m = phi.size();
 
-            CooIter p = coo_begin;
-            ValIter v = val_begin;
+#pragma omp parallel
+            {
+                multi_array<double, NDim> delta(grid);
+                multi_array<double, NDim> omega(grid);
 
-            for(; p != coo_end; ++p, ++v) {
-                if (!boxed(coo_min, *p, coo_max)) continue;
+                std::fill(delta.data(), delta.data() + delta.size(), 0.0);
+                std::fill(omega.data(), omega.data() + omega.size(), 0.0);
 
-                index<NDim> i;
-                point<NDim> s;
+#pragma omp for
+                for(ptrdiff_t l = 0; l < n; ++l) {
+                    auto p = coo_begin[l];
+                    auto v = val_begin[l];
 
-                for(unsigned d = 0; d < NDim; ++d) {
-                    double u = ((*p)[d] - cmin[d]) * hinv[d];
-                    i[d] = floor(u) - 1;
-                    s[d] = u - floor(u);
+                    if (!boxed(coo_min, p, coo_max)) continue;
+
+                    index<NDim> i;
+                    point<NDim> s;
+
+                    for(unsigned d = 0; d < NDim; ++d) {
+                        double u = (p[d] - cmin[d]) * hinv[d];
+                        i[d] = floor(u) - 1;
+                        s[d] = u - floor(u);
+                    }
+
+                    std::array< double, power<4, NDim>::value > w;
+                    double sum_w2 = 0.0;
+
+                    for(grid_iterator<NDim> d(4); d; ++d) {
+                        double prod = 1.0;
+                        for(unsigned k = 0; k < NDim; ++k) prod *= Bspline(d[k], s[k]);
+
+                        w[d.position()] = prod;
+                        sum_w2 += prod * prod;
+                    }
+
+                    for(grid_iterator<NDim> d(4); d; ++d) {
+                        double w1  = w[d.position()];
+                        double w2  = w1 * w1;
+                        double phi = v * w1 / sum_w2;
+
+                        index<NDim> j = i + (*d);
+
+                        delta(j) += w2 * phi;
+                        omega(j) += w2;
+                    }
                 }
 
-                std::array< double, power<4, NDim>::value > w;
-                double sum_w2 = 0.0;
-
-                for(grid_iterator<NDim> d(4); d; ++d) {
-                    double prod = 1.0;
-                    for(unsigned k = 0; k < NDim; ++k) prod *= Bspline(d[k], s[k]);
-
-                    w[d.position()] = prod;
-                    sum_w2 += prod * prod;
-                }
-
-                for(grid_iterator<NDim> d(4); d; ++d) {
-                    double w1  = w[d.position()];
-                    double w2  = w1 * w1;
-                    double phi = (*v) * w1 / sum_w2;
-
-                    index<NDim> j = i + (*d);
-
-                    delta(j) += w2 * phi;
-                    omega(j) += w2;
+#pragma omp critical
+                {
+                    for(ptrdiff_t i = 0; i < m; ++i) {
+                        phi[i] += safe_divide(delta[i], omega[i]);
+                    }
                 }
             }
-
-            phi.resize(grid);
-
-            std::transform(
-                    delta.data(), delta.data() + delta.size(),
-                    omega.data(), phi.data(), safe_divide
-                    );
         }
 
         double operator()(const point<NDim> &p) const {
