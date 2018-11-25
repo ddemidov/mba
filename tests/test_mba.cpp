@@ -76,4 +76,32 @@ TEST_CASE( "MBA" ) {
             REQUIRE(std::abs(val[i] - phi(coo[i])) < 1e-8);
         }
     }
+
+    SECTION("small test function") {
+        std::vector<mba::point<2>> coo;
+        std::vector<double> val;
+        for (unsigned int y = 0; y < 10; y++) {
+            for (unsigned int x = 0; x < 10; x++) {
+                if (x % 2 == 0 && y % 2 == 0) {
+                    const double x_coord = x / 10.;
+                    const double y_coord = y / 10.;
+                    const double current_value = sin(x * 8.) * sin(y * 8.);
+                    coo.push_back({x_coord, y_coord});
+                    val.push_back(current_value);
+                }
+            }
+        }
+
+        const mba::MBA<2> phi(lo, hi, grid, coo, val, 8, 1e-8);
+
+        for (unsigned int y = 0; y < 10; y++) {
+            for (unsigned int x = 0; x < 10; x++) {
+                const double x_coord = x / 10.;
+                const double y_coord = y / 10.;
+                const double true_value = sin(x * 8.) * sin(y * 8.);
+                const double inter_value = phi({x_coord, y_coord});
+                REQUIRE(std::abs(true_value - inter_value) < 1.5);
+            }
+        }
+    }
 }
