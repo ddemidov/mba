@@ -334,6 +334,12 @@ class control_lattice_dense : public control_lattice<NDim> {
                 grid[i] += 2;
             }
 
+            multi_array<double, NDim> delta(grid);
+            multi_array<double, NDim> omega(grid);
+
+            std::fill(delta.data(), delta.data() + delta.size(), 0.0);
+            std::fill(omega.data(), omega.data() + omega.size(), 0.0);
+
             phi.resize(grid);
             std::fill(phi.data(), phi.data() + phi.size(), 0.0);
 
@@ -342,11 +348,11 @@ class control_lattice_dense : public control_lattice<NDim> {
 
 #pragma omp parallel
             {
-                multi_array<double, NDim> delta(grid);
-                multi_array<double, NDim> omega(grid);
+                multi_array<double, NDim> t_delta(grid);
+                multi_array<double, NDim> t_omega(grid);
 
-                std::fill(delta.data(), delta.data() + delta.size(), 0.0);
-                std::fill(omega.data(), omega.data() + omega.size(), 0.0);
+                std::fill(t_delta.data(), t_delta.data() + t_delta.size(), 0.0);
+                std::fill(t_omega.data(), t_omega.data() + t_omega.size(), 0.0);
 
 #pragma omp for
                 for(ptrdiff_t l = 0; l < n; ++l) {
@@ -382,17 +388,23 @@ class control_lattice_dense : public control_lattice<NDim> {
 
                         index<NDim> j = i + (*d);
 
-                        delta(j) += w2 * phi;
-                        omega(j) += w2;
+                        t_delta(j) += w2 * phi;
+                        t_omega(j) += w2;
                     }
                 }
 
-#pragma omp critical
                 {
                     for(ptrdiff_t i = 0; i < m; ++i) {
-                        phi[i] += safe_divide(delta[i], omega[i]);
+#pragma omp atomic
+                        delta[i] += t_delta[i];
+#pragma omp atomic
+                        omega[i] += t_omega[i];
                     }
                 }
+            }
+
+            for(ptrdiff_t i = 0; i < m; ++i) {
+                phi[i] = safe_divide(delta[i], omega[i]);
             }
         }
 
