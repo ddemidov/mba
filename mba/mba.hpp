@@ -49,6 +49,9 @@ THE SOFTWARE.
 
 namespace mba {
 
+using std::ptrdiff_t;
+using std::size_t;
+
 template <int N>
 using point = std::array<double, N>;
 

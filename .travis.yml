@@ -13,8 +13,6 @@ matrix:
         - gcc-5
         - g++-5
   - compiler: clang
-  - os: osx
-    osx_image: xcode9.1
 
 before_install:
   - eval "${MATRIX_EVAL}"
@@ -23,4 +21,5 @@ script:
   - mkdir -p build && cd build
   - cmake -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
   - make
+  - if [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
   - ctest --output-on-failure
