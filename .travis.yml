@@ -1,0 +1,26 @@
+language: cpp
+
+matrix:
+  include:
+  - compiler: gcc
+    env:
+    - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
+    addons:
+      apt:
+        sources:
+        - ubuntu-toolchain-r-test
+        packages:
+        - gcc-5
+        - g++-5
+  - compiler: clang
+  - os: osx
+    osx_image: xcode9.1
+
+before_install:
+  - eval "${MATRIX_EVAL}"
+
+script:
+  - mkdir -p build && cd build
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
+  - make
+  - ctest --output-on-failure
