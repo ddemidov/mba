@@ -41,8 +41,7 @@ int main() {
 }
 ```
 
-Same example in python (also see
-[python/example.ipynb](http://nbviewer.ipython.org/github/ddemidov/mba/blob/master/python/example.ipynb)):
+Same example in python:
 ```.py
 from mba import *
 
@@ -54,6 +53,10 @@ interp = mba2(lo=[-0.1,-0.1], hi=[1.1,1.1], grid=[3,3],
 
 w = interp([[0.3, 0.7]])
 ```
+
+Also see
+[python/example.ipynb](http://nbviewer.ipython.org/github/ddemidov/mba/blob/master/python/example.ipynb),
+[python/layered.ipynb](http://nbviewer.ipython.org/github/ddemidov/mba/blob/master/python/layered.ipynb).
 
 ### References
 
