@@ -59,5 +59,5 @@ w = interp([[0.3, 0.7]])
 
 1. S. Lee, G. Wolberg, and S. Y. Shin. Scattered data interpolation with
    multilevel B-Splines. IEEE Transactions on Visualization and
-   Computer Graphics, 3:228–244, 1997.
+   Computer Graphics, 3:228–244, 1997, [doi:10.1109/2945.620490](https://doi.org/10.1109/2945.620490).
 
