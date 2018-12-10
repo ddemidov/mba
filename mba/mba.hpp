@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <utility>
 #include <iterator>
+#include <stdexcept>
 
 #include <cmath>
 #include <cassert>
@@ -59,6 +60,11 @@ template <int N>
 using index = std::array<size_t, N>;
 
 namespace detail {
+
+template <class Cond, class Msg>
+void precondition(const Cond &cond, const Msg &msg) {
+    if (!static_cast<bool>(cond)) throw std::runtime_error(msg);
+}
 
 // Compile-time N^M
 template <size_t N, size_t M>
@@ -776,6 +782,9 @@ class MBA {
                 )
         {
             using namespace mba::detail;
+
+            for(int i = 0; i < NDim; ++i)
+                precondition(grid[i] > 1, "MBA: grid size in each dimension should be more than 1");
 
             const ptrdiff_t n = std::distance(coo_begin, coo_end);
             std::vector<double> val(val_begin, val_begin + n);
