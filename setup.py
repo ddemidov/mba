@@ -88,7 +88,7 @@ def get_git_version(abbrev=4):
     return version
 
 setup(
-        name='pymba',
+        name='mba',
         version=get_git_version(),
         description='Multilevel B-spline interpolation',
         author='Denis Demidov',
@@ -97,7 +97,7 @@ setup(
         url='https://github.com/ddemidov/mba',
         include_package_data=True,
         ext_modules=[
-            Extension('pymba', ['python/pymba.cpp'],
+            Extension('mba', ['python/pymba.cpp'],
                 include_dirs=['python/pybind11/include/', '.'],
                 extra_compile_args=['-O3', '-std=c++11']
                 )
