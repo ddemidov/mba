@@ -74,7 +74,7 @@ func NewMba2(lo, hi []float64, grid []int64, x, y, val []float64, config *Config
 	m := Mba2{}
 	m.ptr = C.Mba_2_New((*C.double)(&lo[0]),
 		(*C.double)(&hi[0]),
-		(*C.longlong)(&grid[0]),
+		(*C.int64_t)(&grid[0]),
 		(C.int)(n),
 		(*C.double)(&x[0]),
 		(*C.double)(&y[0]),

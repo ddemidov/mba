@@ -86,7 +86,7 @@ func TestMba2(t *testing.T) {
 	// apply to the coordinates
 	computed, err := phi.Apply(coo_x, coo_y)
 	if err != nil {
-		t.Errorf("Error in bulk apply: %w", err)
+		t.Errorf("Error in bulk apply: %s", err)
 	}
 	if len(computed) != len(val) {
 		t.Errorf("Return vector from Apply has unexpected length %d, expected %d", len(computed), len(val))
@@ -105,7 +105,7 @@ func TestMba2(t *testing.T) {
 			true_value := math.Sin(float64(x)*8.) * math.Sin(float64(y)*8.)
 			inter_value, err := phi.Apply([]float64{x_coord}, []float64{y_coord})
 			if err != nil {
-				t.Errorf("Error in Apply: %w", err)
+				t.Errorf("Error in Apply: %s", err)
 			}
 
 			if math.Abs(true_value-inter_value[0]) >= 1.5 {

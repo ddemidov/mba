@@ -14,10 +14,16 @@ matrix:
         - g++-5
   - compiler: clang
 
+addons:
+  apt:
+    packages:
+      - golang
+
 before_install:
   - eval "${MATRIX_EVAL}"
 
 script:
+  - (cd mba && go mod init mba)
   - mkdir -p build && cd build
   - cmake -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
   - make

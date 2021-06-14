@@ -3,6 +3,7 @@
 #include <vector>
 #include <stdio.h>
 #include <sstream>
+#include <cstring>
 #include "mba.hpp"
 
 mba::MBA<2> *GetMba_2(void *ptr) {
