@@ -23,7 +23,6 @@ before_install:
   - eval "${MATRIX_EVAL}"
 
 script:
-  - (cd mba && true)
   - mkdir -p build && cd build
   - cmake -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
   - make
