@@ -1,3 +1,3 @@
 module github.com/ddemidov/mba
 
-go 1.14
+go 1.10
