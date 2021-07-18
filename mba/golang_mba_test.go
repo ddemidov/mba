@@ -34,10 +34,11 @@ func TestMba2KnownValues(t *testing.T) {
 	}
 	defer interp.Free()
 
-	val, err := interp.Apply(
-		[]float64{0.1, 0.7, 0.4, 0.4, 0.5},
-		[]float64{0.7, 0.7, 0.7, 0.6, 0.6},
-	)
+	x := []float64{0.1, 0.7, 0.4, 0.4, 0.5}
+	y := []float64{0.7, 0.7, 0.7, 0.6, 0.6}
+
+	// test Apply
+	val, err := interp.Apply(x, y)
 	if err != nil {
 		t.Error(err)
 	}
@@ -49,7 +50,15 @@ func TestMba2KnownValues(t *testing.T) {
 
 	for i := 0; i < len(val); i++ {
 		if math.Abs(val[i]-expected[i]) > 1e-8 {
-			t.Errorf("Exceeded tolerance: expected value %f got %f", expected[i], val[i])
+			t.Errorf("Exceeded tolerance in Apply: expected value %f got %f", expected[i], val[i])
+		}
+	}
+
+	// test ApplySingle
+	for i := 0; i < len(x); i++ {
+		val := interp.ApplySingle(x[i], y[i])
+		if math.Abs(val-expected[i]) > 1e-8 {
+			t.Errorf("Exceeded tolerance in ApplySingle: expected value %f got %f", expected[i], val)
 		}
 	}
 }
@@ -111,6 +120,14 @@ func TestMba2(t *testing.T) {
 			if math.Abs(true_value-inter_value[0]) >= 1.5 {
 				t.Error("unexpected mismatch")
 			}
+
+			// also test ApplySingle
+			inter_value_single := phi.ApplySingle(x_coord, y_coord)
+			if math.Abs(true_value-inter_value_single) >= 1.5 {
+				t.Error("unexpected mismatch")
+			}
+
 		}
+
 	}
 }
