@@ -114,6 +114,19 @@ func (m Mba2) Apply(x, y []float64) ([]float64, error) {
 		(*C.double)(&y[0]),
 		(*C.double)(&val[0]),
 	)
-	return val, nil
 
+	return val, nil
+}
+
+// ApplySingle uses the Multilevel B-spline to estimate function values at the given coordinates
+func (m Mba2) ApplySingle(x, y float64) float64 {
+	var val float64
+	C.Mba_2_Apply(m.ptr,
+		(C.int)(1),
+		(*C.double)(&x),
+		(*C.double)(&y),
+		(*C.double)(&val),
+	)
+
+	return val
 }
