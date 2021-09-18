@@ -65,6 +65,7 @@ TEST_CASE( "MBA" ) {
         }
     }
 
+#ifndef NDEBUG
     SECTION( "out of range access" ) {
         const int n = 2;
         std::array<mba::point<2>, n> coo = {0, 0, 1, 1};
@@ -74,6 +75,7 @@ TEST_CASE( "MBA" ) {
         
         REQUIRE_THROWS_AS(phi(mba::point<2>{2,2}), std::out_of_range);
     }
+#endif
 
     SECTION( "enough points" ) {
         const int n = 4;
