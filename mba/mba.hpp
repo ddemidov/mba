@@ -117,6 +117,7 @@ class multi_array {
             return buf.data();
         }
     private:
+        std::array<int, N> sizes;
         std::array<int, N> stride;
         std::vector<T>  buf;
 
@@ -124,6 +125,7 @@ class multi_array {
             size_t s = 1;
 
             for(int d = N-1; d >= 0; --d) {
+                sizes[d] = n[d];
                 stride[d] = s;
                 s *= n[d];
             }
@@ -133,8 +135,13 @@ class multi_array {
 
         size_t idx(index<N> i) const {
             size_t p = 0;
-            for(int d = 0; d < N; ++d)
+            for(int d = 0; d < N; ++d) {
+#ifndef NDEBUG
+                if (i[d] < 0 || i[d] >= sizes[d])
+                    throw std::out_of_range("Index is out of range in mba::multi_array");
+#endif
                 p += stride[d] * i[d];
+            }
             return p;
         }
 };
