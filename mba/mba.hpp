@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <array>
 #include <map>
 #include <list>
 #include <memory>
