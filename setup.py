@@ -99,7 +99,7 @@ setup(
         ext_modules=[
             Extension('mba', ['python/pymba.cpp'],
                 include_dirs=['python/pybind11/include/', '.'],
-                extra_compile_args=['-O3', '-std=c++11']
+                extra_compile_args=['-O3', '-std=c++11', '-w']
                 )
             ]
 )
