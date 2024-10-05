@@ -461,7 +461,6 @@ class control_lattice_dense : public control_lattice<NDim> {
             precondition(static_cast<bool>(f.read((char*)hinv.data(), sizeof(hinv))), "file i/o error");
             precondition(static_cast<bool>(f.read((char*)grid.data(), sizeof(grid))), "file i/o error");
 
-            phi.resize(grid);
             phi.read(f);
         }
 
