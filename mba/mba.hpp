@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <vector>
 #include <array>
 #include <map>
@@ -61,6 +62,10 @@ template <int N>
 using index = std::array<size_t, N>;
 
 namespace detail {
+
+const int32_t initial_tag = 42000;
+const int32_t dense_tag   = 42001;
+const int32_t sparse_tag  = 42002;
 
 template <class Cond, class Msg>
 void precondition(const Cond &cond, const Msg &msg) {
@@ -116,6 +121,23 @@ class multi_array {
 
         T* data() {
             return buf.data();
+        }
+
+        void read(std::ifstream &f) {
+            precondition(static_cast<bool>(f.read((char*)sizes.data(), sizeof(sizes))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)stride.data(), sizeof(stride))), "file i/o error");
+
+            size_t n = 1;
+            for (size_t i = 0; i < N; ++i) n *= sizes[i];
+
+            buf.resize(n);
+            precondition(static_cast<bool>(f.read((char*)buf.data(), sizeof(T) * n)), "file i/o error");
+        }
+
+        void write(std::ofstream &f) const {
+            precondition(static_cast<bool>(f.write((char*)sizes.data(), sizeof(sizes))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)stride.data(), sizeof(stride))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)buf.data(), sizeof(T) * buf.size())), "file i/o error");
         }
     private:
         std::array<int, N> sizes;
@@ -289,6 +311,8 @@ class control_lattice {
         virtual double operator()(const point<NDim> &p) const = 0;
 
         virtual void report(std::ostream&) const = 0;
+        virtual int32_t tag() const = 0;
+        virtual void write(std::ofstream&) const = 0;
 
         template <class CooIter, class ValIter>
         double residual(CooIter coo_begin, CooIter coo_end, ValIter val_begin) const {
@@ -319,6 +343,12 @@ class initial_approximation : public control_lattice<NDim> {
         void report(std::ostream &os) const {
             os << "initial approximation";
         }
+
+        int32_t tag() const {
+            return detail::initial_tag;
+        }
+
+        void write(std::ofstream&) const {}
     private:
         std::function<double(const point<NDim>&)> f;
 };
@@ -425,6 +455,29 @@ class control_lattice_dense : public control_lattice<NDim> {
             }
         }
 
+        control_lattice_dense(std::ifstream &f) {
+            precondition(static_cast<bool>(f.read((char*)cmin.data(), sizeof(cmin))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)cmax.data(), sizeof(cmax))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)hinv.data(), sizeof(hinv))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)grid.data(), sizeof(grid))), "file i/o error");
+
+            phi.resize(grid);
+            phi.read(f);
+        }
+
+        void write(std::ofstream &f) const {
+            precondition(static_cast<bool>(f.write((char*)cmin.data(), sizeof(cmin))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)cmax.data(), sizeof(cmax))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)hinv.data(), sizeof(hinv))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)grid.data(), sizeof(grid))), "file i/o error");
+
+            phi.write(f);
+        }
+
+        int32_t tag() const {
+            return detail::dense_tag;
+        }
+
         double operator()(const point<NDim> &p) const {
             index<NDim> i;
             point<NDim> s;
@@ -497,7 +550,6 @@ class control_lattice_dense : public control_lattice<NDim> {
 
             return static_cast<double>(nonzeros) / total;
         }
-
     private:
         point<NDim> cmin, cmax, hinv;
         index<NDim> grid;
@@ -562,6 +614,39 @@ class control_lattice_sparse : public control_lattice<NDim> {
             phi.insert(
                     detail::make_transform_iterator(dw.begin(), delta_over_omega),
                     detail::make_transform_iterator(dw.end(),   delta_over_omega));
+        }
+
+        control_lattice_sparse(std::ifstream &f) {
+            precondition(static_cast<bool>(f.read((char*)cmin.data(), sizeof(cmin))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)cmax.data(), sizeof(cmax))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)hinv.data(), sizeof(hinv))), "file i/o error");
+            precondition(static_cast<bool>(f.read((char*)grid.data(), sizeof(grid))), "file i/o error");
+
+            size_t n;
+            typename sparse_grid::value_type v;
+
+            precondition(static_cast<bool>(f.read((char*)&n, sizeof(n))), "file i/o error");
+            for (size_t i = 0; i < n; ++i) {
+                precondition(static_cast<bool>(f.read((char*)&v, sizeof(v))), "file i/o error");
+                phi.insert(phi.end(), v);
+            }
+        }
+
+        void write(std::ofstream &f) const {
+            precondition(static_cast<bool>(f.write((char*)cmin.data(), sizeof(cmin))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)cmax.data(), sizeof(cmax))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)hinv.data(), sizeof(hinv))), "file i/o error");
+            precondition(static_cast<bool>(f.write((char*)grid.data(), sizeof(grid))), "file i/o error");
+
+            size_t n = phi.size();
+            precondition(static_cast<bool>(f.write((char*)&n, sizeof(n))), "file i/o error");
+            for (auto &p : phi) {
+                precondition(static_cast<bool>(f.write((char*)&p, sizeof(p))), "file i/o error");
+            }
+        }
+
+        int32_t tag() const {
+            return detail::sparse_tag;
         }
 
         double operator()(const point<NDim> &p) const {
@@ -752,6 +837,30 @@ class MBA {
                 );
         }
 
+        MBA(std::ifstream &f, std::function<double(point<NDim>)> initial = std::function<double(point<NDim>)>()) {
+            size_t n;
+            detail::precondition(static_cast<bool>(f.read((char*)&n, sizeof(n))), "file i/o error");
+            for (size_t i = 0; i < n; ++i) {
+                int32_t tag;
+                detail::precondition(static_cast<bool>(f.read((char*)&tag, sizeof(tag))), "file i/o error");
+
+                switch (tag) {
+                case detail::initial_tag:
+                    detail::precondition(static_cast<bool>(initial), "initial function definition should be provided");
+                    cl.push_back(std::make_shared<initial_approximation>(initial));
+                    break;
+                case detail::dense_tag:
+                    cl.push_back(std::make_shared<dense_lattice>(f));
+                    break;
+                case detail::sparse_tag:
+                    cl.push_back(std::make_shared<sparse_lattice>(f));
+                    break;
+                default:
+                    detail::precondition(false, "unknown lattice tag in input file");
+                }
+            }
+        }
+
         double operator()(const point<NDim> &p) const {
             double f = 0.0;
 
@@ -770,6 +879,16 @@ class MBA {
                 os << std::endl;
             }
             return os;
+        }
+
+        void write(std::ofstream &f) const {
+            size_t n = cl.size();
+            detail::precondition(static_cast<bool>(f.write((char*)&n, sizeof(n))), "file i/o error");
+            for (auto &l : cl) {
+                auto tag = l->tag();
+                detail::precondition(static_cast<bool>(f.write((char*)&tag, sizeof(tag))), "file i/o error");
+                l->write(f);
+            }
         }
 
     private:
